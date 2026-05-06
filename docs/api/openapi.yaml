@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Sentinel-Dispatch API
+  description: Motor de despacho eficiente para unidades de emergencia médica.
+  version: 0.1.0
+  license:
+    name: MIT
+    url: https://github.com/Jacket-69/sentinel-dispatch/blob/main/LICENSE
+servers:
+  - url: http://localhost:8000
+    description: Local
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      operationId: healthz
+      tags: [operations]
+      responses:
+        "200":
+          description: Servicio vivo
+  /readyz:
+    get:
+      summary: Readiness probe
+      operationId: readyz
+      tags: [operations]
+      responses:
+        "200":
+          description: Servicio listo
+# TODO F2: agregar /triaje, /despacho, /unidades, /logs, /simulacion

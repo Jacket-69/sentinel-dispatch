@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.installed.cfg
+*.egg
+
+# uv
+.venv/
+.python-version
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checking
+.mypy_cache/
+.pyright/
+.pytype/
+
+# Linting
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# OSM cached graphs (grandes; se generan localmente con scripts/build_graph.py)
+data/graphs/*.graphml
+data/graphs/*.pkl
+data/graphs/*.osm
+!data/graphs/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Builds frontend (si llegamos a tener)
+src/sentinel_dispatch/web/static/dist/
+
+# Misc
+.DS_Store
+Thumbs.db
