@@ -9,7 +9,12 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ### Added
 - Scaffolding inicial del repo (Fase 0 de la metodología): estructura `docs/`, `src/`, `tests/`, CI con GitHub Actions, pre-commit hooks (ruff + mypy + gitleaks), Makefile con targets básicos.
-- ADR-0001 con stack tecnológico (Python 3.12 + FastAPI + SQLite + HTMX + OSMnx).
+- ADRs 0001 (stack), 0002 (monolito modular), 0003 (SQLite v1), 0004 (frontend retro CRT/HTMX), 0005 (deploy demo Cloudflare Tunnel).
+- `Dockerfile` multi-stage + `docker-compose.yml` con perfiles `dev`/`demo`.
+- `scripts/cloudflared-setup.md` (playbook deploy demo) + `scripts/healthcheck.sh`.
+- Sección "Demo en vivo" en `docs/operations/runbook.md`.
+- `uv.lock` para builds reproducibles en CI.
+
 
 ## [v0.1.0-diseño] — 2026-05-07 (planeado)
 
