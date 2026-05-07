@@ -1,0 +1,59 @@
+# Sentinel-Dispatch — composición local + demo (Cloudflare Tunnel)
+#
+# Uso:
+#   make dev                               → solo app (perfil dev)
+#   docker compose up -d                   → app + cloudflared (perfil demo, default)
+#   docker compose --profile dev up        → solo app
+#   docker compose --profile demo up -d    → app + cloudflared
+#
+# Para la URL pública efímera:
+#   docker compose logs cloudflared | grep trycloudflare.com
+#
+# Para una URL estable con dominio propio, ver scripts/cloudflared-setup.md.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentinel-app
+    restart: unless-stopped
+    profiles: [demo, dev]
+    env_file:
+      - .env
+    environment:
+      APP_HOST: "0.0.0.0"
+      APP_PORT: "8000"
+      LOG_FORMAT: "json"
+    volumes:
+      # Persistencia: BD y grafo OSM en host
+      - ./data:/app/data
+    ports:
+      # Solo expuesto a localhost; cloudflared lo expone públicamente
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: sentinel-cloudflared
+    restart: unless-stopped
+    profiles: [demo]
+    depends_on:
+      app:
+        condition: service_healthy
+    # Modo "quick tunnel" — URL efímera *.trycloudflare.com.
+    # Para túnel con cuenta + dominio propio, ver scripts/cloudflared-setup.md
+    # y reemplazar el command por:
+    #   command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    command: tunnel --no-autoupdate --url http://app:8000
+    networks:
+      - default
+
+networks:
+  default:
+    name: sentinel-net
