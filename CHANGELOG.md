@@ -14,6 +14,8 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 - `scripts/cloudflared-setup.md` (playbook deploy demo) + `scripts/healthcheck.sh`.
 - Sección "Demo en vivo" en `docs/operations/runbook.md`.
 - `uv.lock` para builds reproducibles en CI.
+- Diseño de Arquitectura Física (`docs/architecture/c4-deployment.md`) con vista de deployment GLaDOS → Docker → Cloudflare Edge → navegador, Tailscale out-of-band y UPS.
+- BPMN 2.0 del proceso principal (`docs/architecture/process-bpmn.bpmn`) con lanes Operador / Sistema / Personal de Unidad, gateways de validación y confirmación, y event sub-process no interruptivo para re-despacho RN-06.
 
 ## [v0.1.0-diseño] — 2026-05-07 (planeado)
 
