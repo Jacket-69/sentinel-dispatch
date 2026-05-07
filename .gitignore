@@ -69,3 +69,7 @@ src/sentinel_dispatch/web/static/dist/
 # Misc
 .DS_Store
 Thumbs.db
+
+# Contratos para agentes IA — privados, no se versionan
+CLAUDE.md
+AGENTS.md
