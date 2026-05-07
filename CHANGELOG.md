@@ -15,7 +15,6 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 - Sección "Demo en vivo" en `docs/operations/runbook.md`.
 - `uv.lock` para builds reproducibles en CI.
 
-
 ## [v0.1.0-diseño] — 2026-05-07 (planeado)
 
 Entrega académica del bloque Diseño (tarea 2026-05-07 GCS):
