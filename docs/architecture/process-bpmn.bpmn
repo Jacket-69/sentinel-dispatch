@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_SentinelDispatch"
+                  targetNamespace="https://sentinel-dispatch.dev/bpmn"
+                  exporter="manual"
+                  exporterVersion="1.0">
+
+  <bpmn:collaboration id="Collaboration_Despacho">
+    <bpmn:participant id="Pool_SentinelDispatch"
+                      name="Sentinel-Dispatch — Proceso principal de despacho"
+                      processRef="Process_Despacho"/>
+  </bpmn:collaboration>
+
+  <bpmn:process id="Process_Despacho" isExecutable="false">
+
+    <!-- ===================== LANES ===================== -->
+    <bpmn:laneSet id="LaneSet_Despacho">
+      <bpmn:lane id="Lane_Operador" name="Operador de Despacho">
+        <bpmn:flowNodeRef>StartEvent_Incidente</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>UserTask_IngresarIncidente</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>UserTask_ConfirmarDespacho</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Confirma</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Cancelado</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_Sistema" name="Sistema Sentinel-Dispatch">
+        <bpmn:flowNodeRef>ServiceTask_ValidarCoords</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_CoordsValidas</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_RechazadoRN01</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_TriajeMPDS</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_CalcularAStar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_CalcularCosto</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_ProponerUnidad</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ServiceTask_PersistirLog</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_Unidad" name="Personal de Unidad">
+        <bpmn:flowNodeRef>ServiceTask_NotificarUnidad</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Asignado</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <!-- ===================== EVENTOS ===================== -->
+    <bpmn:startEvent id="StartEvent_Incidente" name="Incidente entrante">
+      <bpmn:outgoing>Flow_01</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:endEvent id="EndEvent_RechazadoRN01" name="Rechazado&#10;(RN-01: coords fuera de rango)">
+      <bpmn:incoming>Flow_03b</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="EndEvent_Cancelado" name="Cancelado por operador">
+      <bpmn:incoming>Flow_09b</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="EndEvent_Asignado" name="Unidad asignada">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- ===================== TAREAS — OPERADOR ===================== -->
+    <bpmn:userTask id="UserTask_IngresarIncidente"
+                   name="Ingresar incidente&#10;(coords + síntomas)">
+      <bpmn:incoming>Flow_01</bpmn:incoming>
+      <bpmn:outgoing>Flow_02</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:userTask id="UserTask_ConfirmarDespacho"
+                   name="Revisar propuesta y&#10;confirmar despacho">
+      <bpmn:incoming>Flow_08</bpmn:incoming>
+      <bpmn:outgoing>Flow_09</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- ===================== TAREAS — SISTEMA ===================== -->
+    <bpmn:serviceTask id="ServiceTask_ValidarCoords"
+                      name="Validar coordenadas&#10;(IV Región — RN-01)">
+      <bpmn:incoming>Flow_02</bpmn:incoming>
+      <bpmn:outgoing>Flow_03</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="ServiceTask_TriajeMPDS"
+                      name="Derivar categoría MPDS&#10;(Echo / Delta / Charlie / Bravo / Alpha / Omega)">
+      <bpmn:incoming>Flow_03a</bpmn:incoming>
+      <bpmn:outgoing>Flow_05</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="ServiceTask_CalcularAStar"
+                      name="Calcular A* sobre&#10;unidades disponibles&#10;(grafo OSM + Haversine)">
+      <bpmn:incoming>Flow_05</bpmn:incoming>
+      <bpmn:outgoing>Flow_06</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="ServiceTask_CalcularCosto"
+                      name="Calcular costo&#10;α·T + β·Pen&#10;por unidad">
+      <bpmn:incoming>Flow_06</bpmn:incoming>
+      <bpmn:outgoing>Flow_07</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="ServiceTask_ProponerUnidad"
+                      name="Proponer unidad&#10;de menor costo&#10;(argmin)">
+      <bpmn:incoming>Flow_07</bpmn:incoming>
+      <bpmn:outgoing>Flow_08</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="ServiceTask_PersistirLog"
+                      name="Persistir decisión&#10;en log inmutable&#10;(R-08)">
+      <bpmn:incoming>Flow_10</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ===================== TAREAS — UNIDAD ===================== -->
+    <bpmn:serviceTask id="ServiceTask_NotificarUnidad"
+                      name="Notificar asignación&#10;a personal de unidad">
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- ===================== GATEWAYS ===================== -->
+    <bpmn:exclusiveGateway id="Gateway_CoordsValidas" name="¿Coords en IV Región?">
+      <bpmn:incoming>Flow_03</bpmn:incoming>
+      <bpmn:outgoing>Flow_03a</bpmn:outgoing>
+      <bpmn:outgoing>Flow_03b</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:exclusiveGateway id="Gateway_Confirma" name="¿Operador confirma?">
+      <bpmn:incoming>Flow_09</bpmn:incoming>
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      <bpmn:outgoing>Flow_09b</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- ===================== FLUJOS ===================== -->
+    <bpmn:sequenceFlow id="Flow_01" sourceRef="StartEvent_Incidente" targetRef="UserTask_IngresarIncidente"/>
+    <bpmn:sequenceFlow id="Flow_02" sourceRef="UserTask_IngresarIncidente" targetRef="ServiceTask_ValidarCoords"/>
+    <bpmn:sequenceFlow id="Flow_03" sourceRef="ServiceTask_ValidarCoords" targetRef="Gateway_CoordsValidas"/>
+    <bpmn:sequenceFlow id="Flow_03a" name="Sí" sourceRef="Gateway_CoordsValidas" targetRef="ServiceTask_TriajeMPDS"/>
+    <bpmn:sequenceFlow id="Flow_03b" name="No" sourceRef="Gateway_CoordsValidas" targetRef="EndEvent_RechazadoRN01"/>
+    <bpmn:sequenceFlow id="Flow_05" sourceRef="ServiceTask_TriajeMPDS" targetRef="ServiceTask_CalcularAStar"/>
+    <bpmn:sequenceFlow id="Flow_06" sourceRef="ServiceTask_CalcularAStar" targetRef="ServiceTask_CalcularCosto"/>
+    <bpmn:sequenceFlow id="Flow_07" sourceRef="ServiceTask_CalcularCosto" targetRef="ServiceTask_ProponerUnidad"/>
+    <bpmn:sequenceFlow id="Flow_08" sourceRef="ServiceTask_ProponerUnidad" targetRef="UserTask_ConfirmarDespacho"/>
+    <bpmn:sequenceFlow id="Flow_09" sourceRef="UserTask_ConfirmarDespacho" targetRef="Gateway_Confirma"/>
+    <bpmn:sequenceFlow id="Flow_09b" name="No" sourceRef="Gateway_Confirma" targetRef="EndEvent_Cancelado"/>
+    <bpmn:sequenceFlow id="Flow_10" name="Sí" sourceRef="Gateway_Confirma" targetRef="ServiceTask_PersistirLog"/>
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="ServiceTask_PersistirLog" targetRef="ServiceTask_NotificarUnidad"/>
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="ServiceTask_NotificarUnidad" targetRef="EndEvent_Asignado"/>
+
+    <!-- ===================== EVENT SUB-PROCESS — RE-DESPACHO ===================== -->
+    <bpmn:subProcess id="SubProcess_ReDespacho"
+                     name="Re-despacho por incidente de mayor categoría (RN-06)"
+                     triggeredByEvent="true">
+
+      <bpmn:startEvent id="StartEvent_NuevoIncidenteMayor"
+                       name="Nuevo incidente cumple&#10;4 condiciones RN-06"
+                       isInterrupting="false">
+        <bpmn:outgoing>Flow_R1</bpmn:outgoing>
+        <bpmn:signalEventDefinition id="SignalDef_RN06" signalRef="Signal_RN06"/>
+      </bpmn:startEvent>
+
+      <bpmn:serviceTask id="ServiceTask_ProponerReDespacho"
+                        name="Proponer re-despacho&#10;de unidad ya asignada">
+        <bpmn:incoming>Flow_R1</bpmn:incoming>
+        <bpmn:outgoing>Flow_R2</bpmn:outgoing>
+      </bpmn:serviceTask>
+
+      <bpmn:userTask id="UserTask_ConfirmarReDespacho"
+                     name="Operador confirma o&#10;rechaza re-despacho">
+        <bpmn:incoming>Flow_R2</bpmn:incoming>
+        <bpmn:outgoing>Flow_R3</bpmn:outgoing>
+      </bpmn:userTask>
+
+      <bpmn:serviceTask id="ServiceTask_LogReDespacho"
+                        name="Registrar decisión&#10;en log inmutable">
+        <bpmn:incoming>Flow_R3</bpmn:incoming>
+        <bpmn:outgoing>Flow_R4</bpmn:outgoing>
+      </bpmn:serviceTask>
+
+      <bpmn:endEvent id="EndEvent_ReDespacho" name="Re-despacho registrado">
+        <bpmn:incoming>Flow_R4</bpmn:incoming>
+      </bpmn:endEvent>
+
+      <bpmn:sequenceFlow id="Flow_R1" sourceRef="StartEvent_NuevoIncidenteMayor" targetRef="ServiceTask_ProponerReDespacho"/>
+      <bpmn:sequenceFlow id="Flow_R2" sourceRef="ServiceTask_ProponerReDespacho" targetRef="UserTask_ConfirmarReDespacho"/>
+      <bpmn:sequenceFlow id="Flow_R3" sourceRef="UserTask_ConfirmarReDespacho" targetRef="ServiceTask_LogReDespacho"/>
+      <bpmn:sequenceFlow id="Flow_R4" sourceRef="ServiceTask_LogReDespacho" targetRef="EndEvent_ReDespacho"/>
+    </bpmn:subProcess>
+
+  </bpmn:process>
+
+  <bpmn:signal id="Signal_RN06" name="IncidenteMayorCategoria"/>
+
+  <!-- ===================== DIAGRAM (BPMNDI) ===================== -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Despacho">
+    <bpmndi:BPMNPlane id="BPMNPlane_Despacho" bpmnElement="Collaboration_Despacho">
+
+      <!-- Pool -->
+      <bpmndi:BPMNShape id="Shape_Pool" bpmnElement="Pool_SentinelDispatch" isHorizontal="true">
+        <dc:Bounds x="120" y="60" width="1820" height="600"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Lanes -->
+      <bpmndi:BPMNShape id="Shape_Lane_Operador" bpmnElement="Lane_Operador" isHorizontal="true">
+        <dc:Bounds x="150" y="60" width="1790" height="200"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Sistema" bpmnElement="Lane_Sistema" isHorizontal="true">
+        <dc:Bounds x="150" y="260" width="1790" height="240"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Unidad" bpmnElement="Lane_Unidad" isHorizontal="true">
+        <dc:Bounds x="150" y="500" width="1790" height="160"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Eventos / Tareas — Operador -->
+      <bpmndi:BPMNShape id="Shape_StartEvent_Incidente" bpmnElement="StartEvent_Incidente">
+        <dc:Bounds x="200" y="142" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="184" y="185" width="70" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_UserTask_Ingresar" bpmnElement="UserTask_IngresarIncidente">
+        <dc:Bounds x="290" y="120" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_UserTask_Confirmar" bpmnElement="UserTask_ConfirmarDespacho">
+        <dc:Bounds x="1340" y="120" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_Gateway_Confirma" bpmnElement="Gateway_Confirma" isMarkerVisible="true">
+        <dc:Bounds x="1495" y="135" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1480" y="100" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_EndEvent_Cancelado" bpmnElement="EndEvent_Cancelado">
+        <dc:Bounds x="1602" y="142" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1580" y="185" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- Eventos / Tareas — Sistema -->
+      <bpmndi:BPMNShape id="Shape_ServiceTask_ValidarCoords" bpmnElement="ServiceTask_ValidarCoords">
+        <dc:Bounds x="290" y="340" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_Gateway_CoordsValidas" bpmnElement="Gateway_CoordsValidas" isMarkerVisible="true">
+        <dc:Bounds x="445" y="355" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="430" y="320" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_EndEvent_RechazadoRN01" bpmnElement="EndEvent_RechazadoRN01">
+        <dc:Bounds x="452" y="450" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="410" y="490" width="120" height="28"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_ServiceTask_TriajeMPDS" bpmnElement="ServiceTask_TriajeMPDS">
+        <dc:Bounds x="540" y="340" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_ServiceTask_CalcularAStar" bpmnElement="ServiceTask_CalcularAStar">
+        <dc:Bounds x="720" y="340" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_ServiceTask_CalcularCosto" bpmnElement="ServiceTask_CalcularCosto">
+        <dc:Bounds x="900" y="340" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_ServiceTask_ProponerUnidad" bpmnElement="ServiceTask_ProponerUnidad">
+        <dc:Bounds x="1080" y="340" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_ServiceTask_PersistirLog" bpmnElement="ServiceTask_PersistirLog">
+        <dc:Bounds x="1620" y="340" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- Eventos / Tareas — Unidad -->
+      <bpmndi:BPMNShape id="Shape_ServiceTask_NotificarUnidad" bpmnElement="ServiceTask_NotificarUnidad">
+        <dc:Bounds x="1620" y="540" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_EndEvent_Asignado" bpmnElement="EndEvent_Asignado">
+        <dc:Bounds x="1812" y="562" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1790" y="605" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- Sub-process re-despacho (compacto, abajo) -->
+      <bpmndi:BPMNShape id="Shape_SubProcess_ReDespacho" bpmnElement="SubProcess_ReDespacho" isExpanded="true">
+        <dc:Bounds x="200" y="700" width="900" height="200"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SP_Start" bpmnElement="StartEvent_NuevoIncidenteMayor">
+        <dc:Bounds x="240" y="782" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="220" y="825" width="80" height="28"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SP_Proponer" bpmnElement="ServiceTask_ProponerReDespacho">
+        <dc:Bounds x="320" y="760" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SP_Confirmar" bpmnElement="UserTask_ConfirmarReDespacho">
+        <dc:Bounds x="500" y="760" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SP_Log" bpmnElement="ServiceTask_LogReDespacho">
+        <dc:Bounds x="680" y="760" width="140" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SP_End" bpmnElement="EndEvent_ReDespacho">
+        <dc:Bounds x="862" y="782" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="842" y="825" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- ===================== EDGES ===================== -->
+      <bpmndi:BPMNEdge id="Edge_Flow_01" bpmnElement="Flow_01">
+        <di:waypoint x="236" y="160"/>
+        <di:waypoint x="290" y="160"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_02" bpmnElement="Flow_02">
+        <di:waypoint x="350" y="200"/>
+        <di:waypoint x="350" y="340"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_03" bpmnElement="Flow_03">
+        <di:waypoint x="410" y="380"/>
+        <di:waypoint x="445" y="380"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_03a" bpmnElement="Flow_03a">
+        <di:waypoint x="495" y="380"/>
+        <di:waypoint x="540" y="380"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="505" y="362" width="20" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_03b" bpmnElement="Flow_03b">
+        <di:waypoint x="470" y="405"/>
+        <di:waypoint x="470" y="450"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="478" y="415" width="20" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_05" bpmnElement="Flow_05">
+        <di:waypoint x="680" y="380"/>
+        <di:waypoint x="720" y="380"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_06" bpmnElement="Flow_06">
+        <di:waypoint x="860" y="380"/>
+        <di:waypoint x="900" y="380"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_07" bpmnElement="Flow_07">
+        <di:waypoint x="1040" y="380"/>
+        <di:waypoint x="1080" y="380"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_08" bpmnElement="Flow_08">
+        <di:waypoint x="1220" y="380"/>
+        <di:waypoint x="1280" y="380"/>
+        <di:waypoint x="1280" y="160"/>
+        <di:waypoint x="1340" y="160"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_09" bpmnElement="Flow_09">
+        <di:waypoint x="1460" y="160"/>
+        <di:waypoint x="1495" y="160"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_09b" bpmnElement="Flow_09b">
+        <di:waypoint x="1545" y="160"/>
+        <di:waypoint x="1602" y="160"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1560" y="140" width="20" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_10" bpmnElement="Flow_10">
+        <di:waypoint x="1520" y="185"/>
+        <di:waypoint x="1520" y="280"/>
+        <di:waypoint x="1690" y="280"/>
+        <di:waypoint x="1690" y="340"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1528" y="220" width="20" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_11" bpmnElement="Flow_11">
+        <di:waypoint x="1690" y="420"/>
+        <di:waypoint x="1690" y="540"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_Flow_12" bpmnElement="Flow_12">
+        <di:waypoint x="1760" y="580"/>
+        <di:waypoint x="1812" y="580"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- Sub-process edges -->
+      <bpmndi:BPMNEdge id="Edge_Flow_R1" bpmnElement="Flow_R1">
+        <di:waypoint x="276" y="800"/>
+        <di:waypoint x="320" y="800"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_R2" bpmnElement="Flow_R2">
+        <di:waypoint x="460" y="800"/>
+        <di:waypoint x="500" y="800"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_R3" bpmnElement="Flow_R3">
+        <di:waypoint x="640" y="800"/>
+        <di:waypoint x="680" y="800"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_R4" bpmnElement="Flow_R4">
+        <di:waypoint x="820" y="800"/>
+        <di:waypoint x="862" y="800"/>
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

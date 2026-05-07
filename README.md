@@ -14,7 +14,7 @@ En etapa de diseño y estructura inicial. La documentación funcional vive en `d
 
 - [Visión del producto](docs/product/vision.md)
 - [Requisitos](docs/requirements/requirements.md)
-- [Arquitectura](docs/architecture/overview.md)
+- [Arquitectura](docs/architecture/overview.md) · [Arquitectura Física](docs/architecture/c4-deployment.md) · [Proceso BPMN](docs/architecture/process-bpmn.md)
 - [API](docs/api/openapi.yaml)
 - [Definition of Done](docs/quality/definition-of-done.md)
 - [ADRs](docs/architecture/decisions/)
