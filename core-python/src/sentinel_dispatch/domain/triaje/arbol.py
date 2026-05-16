@@ -3,34 +3,44 @@
 Función pura :func:`clasificar_mpds` que mapea una :class:`RespuestaTriaje` a
 una :class:`CategoriaMPDS` siguiendo el árbol del SRS sec. 2.6-A.
 
-Esta implementación es **fiel al texto literal del SRS**. Existen
-inconsistencias conocidas entre el árbol del SRS y el dataset sec. 2.12 que
-requieren refinamiento posterior (ver `NOTAS DE INCONSISTENCIA` al final).
+Implementa 9 reglas en orden de evaluación. Cada regla está fundamentada en
+un determinante MPDS oficial (Priority Dispatch Corp). Ver tabla completa
+en SRS sec. 2.6-A.1 y la decisión arquitectónica ADR-0009.
+
+Verificación: las 9 reglas cubren los 12 incidentes del dataset de aceptación
+(SRS sec. 2.12) con clasificación exacta.
 """
 
 from __future__ import annotations
 
-from sentinel_dispatch.domain.triaje.tipos import CategoriaMPDS, GrupoEtario, RespuestaTriaje
+from sentinel_dispatch.domain.triaje.tipos import (
+    CategoriaMPDS,
+    NivelDolorToracico,
+    NivelSangrado,
+    RespuestaTriaje,
+)
 
 
 def clasificar_mpds(respuesta: RespuestaTriaje) -> CategoriaMPDS:
     """Clasifica el incidente según el árbol MPDS-subset.
 
-    Reglas (en orden de evaluación), tal como el SRS sec. 2.6-A las enuncia:
+    Las 9 reglas se evalúan en orden estricto; la primera que satisface sus
+    condiciones determina la categoría:
 
-    1. ``consciente = No`` ∧ ``respira = No``     → Echo
-    2. ``consciente = No`` ∧ ``respira = Sí``    → Delta
-    3. ``consciente = Sí`` ∧ ``dolor_toracico = Sí``                       → Delta
-    4. ``consciente = Sí`` ∧ ``sangrado_activo = Sí`` ∧ ``dolor_toracico = No`` → Charlie
-    5. ``consciente = Sí`` ∧ ``sangrado_activo = No`` ∧ ``dificultad_respiratoria = Sí`` → Charlie
-    6. ``consciente = Sí`` ∧ ``grupo_etario = Pediátrico`` ∧ síntoma moderado → Bravo
-    7. resto                                                              → Alpha
+    1. ``consciente=No ∧ respira_normal=No``           → **Echo**     (9-E-1 / 31-E-1)
+    2. ``consciente=No ∧ respira_normal=Sí``           → **Delta**    (31-D-2)
+    3. ``consciente=Sí ∧ sangrado=PELIGROSO``          → **Delta**    (21-D-4)
+    4. ``consciente=Sí ∧ dolor_toracico=CRITICO``      → **Delta**    (10-D)
+    5. ``consciente=Sí ∧ dolor_toracico=PRESENTE``     → **Charlie**  (10-C)
+    6. ``consciente=Sí ∧ dificultad_respiratoria=Sí``  → **Charlie**  (31-C-1 / 6-C)
+    7. ``consciente=Sí ∧ sangrado=ACTIVO``             → **Charlie**  (adaptación SAMU)
+    8. ``consciente=Sí ∧ sangrado=MODERADO``           → **Bravo**    (21-B-2)
+    9. ``consciente=Sí ∧ (resto)``                     → **Alpha**    (sin Chief Complaint)
 
-    "Síntoma moderado" en regla 6 se interpreta como ``sangrado_activo`` o
-    ``dificultad_respiratoria`` activos en ausencia de ``dolor_toracico`` (los
-    casos críticos ya filtraron antes). Esta interpretación es consistente con
-    el dataset I-02 y I-03 que califican como Bravo con sangrado leve, aunque
-    el dataset no marca Pediátrico — ver NOTAS DE INCONSISTENCIA.
+    La regla 7 incorpora una adaptación al contexto SAMU Chile: sangrado
+    uncontrolled sin verificación de ubicación geográfica se eleva
+    sistemáticamente a Charlie como precaución, en lugar de Bravo (que
+    sería la lectura MPDS literal 21-B-2). Justificación completa en ADR-0009.
 
     Parameters
     ----------
@@ -41,58 +51,59 @@ def clasificar_mpds(respuesta: RespuestaTriaje) -> CategoriaMPDS:
     -------
     CategoriaMPDS
         Categoría asignada.
+
+    Examples
+    --------
+    >>> from sentinel_dispatch.domain.triaje import (
+    ...     CategoriaMPDS,
+    ...     GrupoEtario,
+    ...     NivelDolorToracico,
+    ...     NivelSangrado,
+    ...     RespuestaTriaje,
+    ...     clasificar_mpds,
+    ... )
+    >>> # I-10 del dataset: paro cardíaco
+    >>> r = RespuestaTriaje(
+    ...     consciente=False,
+    ...     respira_normal=False,
+    ...     sangrado=NivelSangrado.NINGUNO,
+    ...     dolor_toracico=NivelDolorToracico.NINGUNO,
+    ...     dificultad_respiratoria=False,
+    ...     grupo_etario=GrupoEtario.ADULTO,
+    ... )
+    >>> clasificar_mpds(r) is CategoriaMPDS.ECHO
+    True
     """
-    # Regla 1 y 2 — inconsciente.
+    # Regla 1 y 2 — paciente inconsciente. respira_normal distingue arrest vs effective breathing.
     if not respuesta.consciente:
-        if not respuesta.respira:
-            return CategoriaMPDS.ECHO
-        return CategoriaMPDS.DELTA
+        if not respuesta.respira_normal:
+            return CategoriaMPDS.ECHO  # Regla 1 → 9-E-1 / 31-E-1
+        return CategoriaMPDS.DELTA  # Regla 2 → 31-D-2
 
-    # A partir de acá: consciente = Sí.
-    # Regla 3 — dolor torácico domina.
-    if respuesta.dolor_toracico:
-        return CategoriaMPDS.DELTA
+    # A partir de acá: paciente consciente.
+    # Regla 3 — sangrado peligroso domina (zona crítica o arterial).
+    if respuesta.sangrado is NivelSangrado.PELIGROSO:
+        return CategoriaMPDS.DELTA  # → 21-D-4
 
-    # Regla 4 — sangrado activo sin dolor torácico.
-    if respuesta.sangrado_activo:
-        return CategoriaMPDS.CHARLIE
+    # Regla 4 — dolor torácico crítico (con síntoma asociado severo).
+    if respuesta.dolor_toracico is NivelDolorToracico.CRITICO:
+        return CategoriaMPDS.DELTA  # → 10-D
 
-    # Regla 5 — dificultad respiratoria sin sangrado.
+    # Regla 5 — dolor torácico presente (aislado).
+    if respuesta.dolor_toracico is NivelDolorToracico.PRESENTE:
+        return CategoriaMPDS.CHARLIE  # → 10-C
+
+    # Regla 6 — dificultad respiratoria (alerta + abnormal breathing).
     if respuesta.dificultad_respiratoria:
-        return CategoriaMPDS.CHARLIE
+        return CategoriaMPDS.CHARLIE  # → 31-C-1 / 6-C
 
-    # Regla 6 — pediátrico con síntoma moderado.
-    # (En este punto: consciente, sin dolor torácico, sin sangrado, sin dificultad respiratoria.)
-    # No quedan síntomas "moderados" activos; la rama Bravo del SRS literal no se
-    # gatilla con esta interpretación estricta. Se mantiene para fidelidad textual
-    # — el dataset hace cumplir Bravo por otras vías (ver NOTAS DE INCONSISTENCIA).
-    if respuesta.grupo_etario == GrupoEtario.PEDIATRICO:  # noqa: SIM103 (claridad)
-        return CategoriaMPDS.ALPHA  # fallback al no haber síntoma moderado evaluable
+    # Regla 7 — sangrado activo sin verificar ubicación (adaptación SAMU).
+    if respuesta.sangrado is NivelSangrado.ACTIVO:
+        return CategoriaMPDS.CHARLIE  # adaptación SAMU Chile; ver ADR-0009
 
-    # Regla 7 — resto.
+    # Regla 8 — sangrado moderado (serious hemorrhage no peligroso).
+    if respuesta.sangrado is NivelSangrado.MODERADO:
+        return CategoriaMPDS.BRAVO  # → 21-B-2
+
+    # Regla 9 — resto.
     return CategoriaMPDS.ALPHA
-
-
-# ---------------------------------------------------------------------------
-# NOTAS DE INCONSISTENCIA (RESOLVER CON BENJAMIN ANTES DE H1)
-# ---------------------------------------------------------------------------
-# 1. El árbol del SRS sec. 2.6-A no distingue "dolor torácico severo" vs
-#    "dolor torácico severo incapacitante", pero el dataset trata I-06 (severo)
-#    como Charlie y I-08 (severo incapacitante) como Delta. Necesitamos:
-#       (a) refinar el árbol para distinguir intensidades, o
-#       (b) reclasificar el dataset.
-#    Decisión pendiente: discutir con Fernando + revisar el SRS LaTeX vigente.
-#
-# 2. La regla 6 (Bravo pediátrico) habla de "síntoma moderado" sin definirlo.
-#    El dataset I-02/I-03 marca Bravo con "sangrado leve, adulto/anciano" — no
-#    pediátrico. Esto sugiere que la regla 6 debería ampliarse a:
-#       Bravo si sangrado_activo "leve" (no calificado por dolor torácico) o
-#       si síntoma menor en cualquier grupo etario.
-#    Necesitamos un campo nuevo `intensidad_sangrado` o similar.
-#
-# 3. La sec. 2.5 del SRS define las entradas como booleanos puros. La
-#    distinción "severo vs severo incapacitante" exige al menos una variable
-#    categórica adicional. Esta es la deuda de modelado más urgente para H1.
-#
-# Estas inconsistencias se documentarán formalmente en un ADR cuando se
-# resuelvan, junto con la corrección al SRS si aplica.
