@@ -1,13 +1,25 @@
 ---
 adr: 0005
 title: Deploy demo vía Cloudflare Tunnel desde PC local con mitigaciones de resiliencia
-status: accepted
+status: deferred
+deferred-to: F4
 date: 2026-05-06
+deferred-date: 2026-05-15
 deciders: Benjamin López
-tags: [adr, deploy, devops, demo]
+tags: [adr, deploy, devops, demo, deferred]
 ---
 
 # ADR 0005 — Deploy demo vía Cloudflare Tunnel desde PC local
+
+> **⏸ DEFERRED el 2026-05-15 — re-evaluar en F4 cuando exista app que servir.**
+>
+> Razón del cambio: decidir Cloudflare Tunnel + Tailscale + cron healthcheck + UPS + Tailscale móvil para reiniciar en vivo, mientras `src/` está vacío, es planificar la jubilación antes del primer trabajo. La revisión 2026-05-15 (ver `Plan B - Reestructuración.md` del vault) decidió posponer este ADR a F4 (post-MVP), cuando exista núcleo funcional que justifique el deploy.
+>
+> Para v1 la "demo en vivo" se reemplaza por ejecución reproducible local del dataset: `make test-dataset` corre los 12 incidentes en ambos cores, y `make compare` genera el reporte RT-02. La defensa se hace mostrando la ejecución en pantalla y el reporte de validación dual.
+>
+> La decisión técnica de este ADR sigue siendo válida cuando se reactive. Mantener `docker-compose.yml` y `scripts/cloudflared-setup.md` como referencia pero **no ejecutar el playbook** hasta F4.
+>
+> Este ADR se conserva como referencia para cuando se reactive.
 
 ## Contexto
 

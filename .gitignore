@@ -1,4 +1,6 @@
-# Python
+# =============================================================================
+# Python (core-python/)
+# =============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -34,26 +36,63 @@ coverage.xml
 # Linting
 .ruff_cache/
 
+# =============================================================================
+# Java (core-java/)
+# =============================================================================
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# Maven
+.mvn/
+.classpath
+.project
+.settings/
+
+# JaCoCo coverage
+jacoco.exec
+
+# =============================================================================
 # IDE
+# =============================================================================
 .vscode/
 .idea/
+*.iml
 *.swp
 *.swo
 *~
-.DS_Store
 
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+Thumbs.db
+
+# =============================================================================
 # Environment
+# =============================================================================
 .env
 .env.local
 .env.*.local
 
-# SQLite
-*.db
-*.sqlite
-*.sqlite3
-*.db-journal
+# =============================================================================
+# Data (estado runtime y artefactos pesados)
+# =============================================================================
 
-# OSM cached graphs (grandes; se generan localmente con scripts/build_graph.py)
+# Eventos JSONL (ADR-0007 — estado runtime, no se versiona)
+data/eventos.jsonl
+data/eventos*.jsonl
+
+# Outputs de comparación dual (regenerables)
+/tmp/python-out/
+/tmp/java-out/
+
+# OSM cached graphs (grandes; se generan con core-python/scripts/build_graph.py)
 data/graphs/*.graphml
 data/graphs/*.pkl
 data/graphs/*.osm
@@ -63,13 +102,16 @@ data/graphs/*.osm
 *.log
 logs/
 
-# Builds frontend (si llegamos a tener)
-src/sentinel_dispatch/web/static/dist/
+# Reportes generados (regenerables vía CI)
+docs/quality/rt-validation-report.md
 
-# Misc
-.DS_Store
-Thumbs.db
+# =============================================================================
+# Backups locales
+# =============================================================================
+backups/
 
+# =============================================================================
 # Contratos para agentes IA — privados, no se versionan
+# =============================================================================
 CLAUDE.md
 AGENTS.md
