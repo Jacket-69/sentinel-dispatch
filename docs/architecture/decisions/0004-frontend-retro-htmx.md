@@ -1,13 +1,23 @@
 ---
 adr: 0004
 title: Frontend retro CRT/phosphor con HTMX + Tailwind + Leaflet
-status: accepted
+status: deferred
+deferred-to: F5
 date: 2026-05-06
+deferred-date: 2026-05-15
 deciders: Benjamin López
-tags: [adr, frontend, ux]
+tags: [adr, frontend, ux, deferred]
 ---
 
 # ADR 0004 — Frontend retro CRT/phosphor con HTMX + Tailwind + Leaflet
+
+> **⏸ DEFERRED el 2026-05-15 — fuera de scope v1, opcional para F5.**
+>
+> Razón del cambio: la estética CRT/phosphor es memorable y diferenciadora, pero no es lo que el profesor de GCS evalúa. La revisión 2026-05-15 (ver `Plan B - Reestructuración.md` del vault) concluyó que el equipo de 2 personas / 2 meses debe enfocar esfuerzo en el algoritmo, la validación dual Java vs Python (RT-01..RT-04) y la matriz de trazabilidad. Para v1 la entrega se hace con CLI funcional + opcional Jupyter notebook de visualización.
+>
+> Esta decisión arquitectónica sigue siendo válida; **se rescata como bonus en F5** si sobra tiempo después de cerrar H1–H5 del roadmap.
+>
+> Este ADR se conserva como referencia para cuando se reactive.
 
 ## Contexto
 

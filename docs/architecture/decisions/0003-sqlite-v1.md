@@ -1,13 +1,21 @@
 ---
 adr: 0003
 title: SQLite + SQLAlchemy 2.x + Alembic para v1, plan de migración a Postgres documentado
-status: accepted
+status: superseded
+superseded-by: 0007
 date: 2026-05-06
+superseded-date: 2026-05-15
 deciders: Benjamin López
-tags: [adr, persistencia]
+tags: [adr, persistencia, superseded]
 ---
 
 # ADR 0003 — SQLite + SQLAlchemy 2.x + Alembic para v1
+
+> **⚠ SUPERSEDED el 2026-05-15 por [ADR-0007 — Persistencia JSONL append-only](0007-persistencia-jsonl.md).**
+>
+> Razón del cambio: para 12 incidentes del dataset y un único operador, SQLAlchemy 2.x async + Alembic + triggers SQL es sobreingeniería. ADR-0007 implementa el log inmutable mediante JSONL append-only, manteniendo el cumplimiento de RN-03 y RN-07 sin la maquinaria SQL. El plan de migración a SQL queda documentado en ADR-0007 si llegara a ser necesario.
+>
+> Este ADR se conserva como historia. **No usar como referencia activa.**
 
 ## Contexto
 
