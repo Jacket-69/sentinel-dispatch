@@ -12,10 +12,10 @@ se documenta en la sub-sección 2.6-A.1 del SRS y en ADR-0009.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class CategoriaMPDS(str, Enum):
+class CategoriaMPDS(StrEnum):
     """Categorías del subset MPDS aplicado por Sentinel-Dispatch.
 
     Orden estricto de criticidad creciente: Alpha < Bravo < Charlie < Delta < Echo.
@@ -36,14 +36,14 @@ class CategoriaMPDS(str, Enum):
     DELTA = "Delta"
     ECHO = "Echo"
 
-    def __lt__(self, other: object) -> bool:  # noqa: D401
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, CategoriaMPDS):
             return NotImplemented
         order = list(CategoriaMPDS)
         return order.index(self) < order.index(other)
 
 
-class GrupoEtario(str, Enum):
+class GrupoEtario(StrEnum):
     """Grupos etarios reconocidos por el árbol de triaje.
 
     Referencia: SRS sec. 2.5. Reservado para subdeterminantes específicos
@@ -55,7 +55,7 @@ class GrupoEtario(str, Enum):
     ANCIANO = "Anciano"
 
 
-class NivelSangrado(str, Enum):
+class NivelSangrado(StrEnum):
     """Nivel de sangrado visible.
 
     Mapeo a MPDS Protocol 21 (Hemorrhage/Lacerations):
@@ -75,7 +75,7 @@ class NivelSangrado(str, Enum):
     PELIGROSO = "Peligroso"
 
 
-class NivelDolorToracico(str, Enum):
+class NivelDolorToracico(StrEnum):
     """Nivel de dolor torácico.
 
     Mapeo a MPDS Protocol 10 (Chest Pain):
