@@ -1,0 +1,92 @@
+[
+  {
+    "id": "U01",
+    "patente": "AMB-001",
+    "tipo": "Avanzada",
+    "base_nombre": "Hospital San Juan de Dios de La Serena",
+    "base_lat": -29.9077,
+    "base_lon": -71.2535,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U02",
+    "patente": "AMB-002",
+    "tipo": "Básica",
+    "base_nombre": "CESFAM Pedro Aguirre Cerda",
+    "base_lat": -29.9015,
+    "base_lon": -71.2433,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U03",
+    "patente": "AMB-003",
+    "tipo": "Avanzada",
+    "base_nombre": "Hospital San Pablo de Coquimbo",
+    "base_lat": -29.9533,
+    "base_lon": -71.3389,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U04",
+    "patente": "AMB-004",
+    "tipo": "Básica",
+    "base_nombre": "CESFAM Las Compañías",
+    "base_lat": -29.8868,
+    "base_lon": -71.2548,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U05",
+    "patente": "AMB-005",
+    "tipo": "Avanzada",
+    "base_nombre": "CESFAM Tierras Blancas",
+    "base_lat": -29.9622,
+    "base_lon": -71.3198,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U06",
+    "patente": "AMB-006",
+    "tipo": "Avanzada",
+    "base_nombre": "Posta SAMU La Serena Centro",
+    "base_lat": -29.9027,
+    "base_lon": -71.2519,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U07",
+    "patente": "AMB-007",
+    "tipo": "Avanzada",
+    "base_nombre": "CESFAM Sergio Aguilar Delgado",
+    "base_lat": -29.9412,
+    "base_lon": -71.3047,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U08",
+    "patente": "AMB-008",
+    "tipo": "Básica",
+    "base_nombre": "CESFAM Cardenal Caro",
+    "base_lat": -29.9252,
+    "base_lon": -71.2715,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U09",
+    "patente": "AMB-009",
+    "tipo": "Avanzada",
+    "base_nombre": "CESFAM San Juan",
+    "base_lat": -29.9183,
+    "base_lon": -71.2628,
+    "estado": "Disponible"
+  },
+  {
+    "id": "U10",
+    "patente": "AMB-010",
+    "tipo": "Básica",
+    "base_nombre": "CESFAM El Sauce",
+    "base_lat": -29.9469,
+    "base_lon": -71.3262,
+    "estado": "Disponible"
+  }
+]

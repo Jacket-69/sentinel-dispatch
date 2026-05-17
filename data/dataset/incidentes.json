@@ -1,0 +1,254 @@
+[
+  {
+    "id": "I-01",
+    "lat": -29.910000,
+    "lon": -71.256000,
+    "timestamp": "2026-05-25T08:15:00-04:00",
+    "respuestas_triaje": {
+      "consciente": true,
+      "respira_normal": true,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Alpha",
+      "unidad_esperada": "U02",
+      "eta_aprox_min": 3,
+      "regla_aplicada": 9,
+      "nota": "Sin Chief Complaint que escale; Básica válida."
+    }
+  },
+  {
+    "id": "I-02",
+    "lat": -29.925000,
+    "lon": -71.263000,
+    "timestamp": "2026-05-25T09:42:00-04:00",
+    "respuestas_triaje": {
+      "consciente": true,
+      "respira_normal": true,
+      "sangrado": "Moderado",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Bravo",
+      "unidad_esperada": "U08",
+      "eta_aprox_min": 2,
+      "regla_aplicada": 8,
+      "nota": "21-B-2 serious hemorrhage; cualquier unidad válida."
+    }
+  },
+  {
+    "id": "I-03",
+    "lat": -29.940000,
+    "lon": -71.275000,
+    "timestamp": "2026-05-25T10:18:00-04:00",
+    "respuestas_triaje": {
+      "consciente": true,
+      "respira_normal": true,
+      "sangrado": "Moderado",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Anciano"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Bravo",
+      "unidad_esperada": "U03",
+      "eta_aprox_min": 1,
+      "regla_aplicada": 8,
+      "nota": "21-B-2; Avanzada sin penalización."
+    }
+  },
+  {
+    "id": "I-04",
+    "lat": -29.900000,
+    "lon": -71.248000,
+    "timestamp": "2026-05-25T11:05:00-04:00",
+    "respuestas_triaje": {
+      "consciente": true,
+      "respira_normal": true,
+      "sangrado": "Activo",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Charlie",
+      "unidad_esperada": "U01",
+      "eta_aprox_min": 2,
+      "regla_aplicada": 7,
+      "nota": "Adaptación SAMU; Básica penalizada +600 s, Avanzada gana."
+    }
+  },
+  {
+    "id": "I-05",
+    "lat": -29.950000,
+    "lon": -71.320000,
+    "timestamp": "2026-05-25T12:30:00-04:00",
+    "respuestas_triaje": {
+      "consciente": true,
+      "respira_normal": true,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": true,
+      "grupo_etario": "Anciano"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Charlie",
+      "unidad_esperada": "U05",
+      "eta_aprox_min": 4,
+      "regla_aplicada": 6,
+      "nota": "31-C-1 / 6-C; penalización Básica confirmada."
+    }
+  },
+  {
+    "id": "I-06",
+    "lat": -29.918000,
+    "lon": -71.262000,
+    "timestamp": "2026-05-25T13:47:00-04:00",
+    "respuestas_triaje": {
+      "consciente": true,
+      "respira_normal": true,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Presente",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Charlie",
+      "unidad_esperada": "U09",
+      "eta_aprox_min": 3,
+      "regla_aplicada": 5,
+      "nota": "10-C chest pain alerta; penalización Básica confirmada."
+    }
+  },
+  {
+    "id": "I-07",
+    "lat": -29.904000,
+    "lon": -71.253000,
+    "timestamp": "2026-05-25T14:55:00-04:00",
+    "respuestas_triaje": {
+      "consciente": false,
+      "respira_normal": true,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Delta",
+      "unidad_esperada": "U01",
+      "eta_aprox_min": 2,
+      "regla_aplicada": 2,
+      "nota": "31-D-2 unconscious effective breathing; solo Avanzada."
+    }
+  },
+  {
+    "id": "I-08",
+    "lat": -29.938000,
+    "lon": -71.285000,
+    "timestamp": "2026-05-25T15:22:00-04:00",
+    "respuestas_triaje": {
+      "consciente": true,
+      "respira_normal": true,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Crítico",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Delta",
+      "unidad_esperada": "U03",
+      "eta_aprox_min": 1,
+      "regla_aplicada": 4,
+      "nota": "10-D chest pain con síntoma asociado severo; penalización ∞ a Básica."
+    }
+  },
+  {
+    "id": "I-09",
+    "lat": -29.957000,
+    "lon": -71.340000,
+    "timestamp": "2026-05-25T16:10:00-04:00",
+    "respuestas_triaje": {
+      "consciente": false,
+      "respira_normal": true,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Pediátrico"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Delta",
+      "unidad_esperada": "U05",
+      "eta_aprox_min": 2,
+      "regla_aplicada": 2,
+      "nota": "31-D-2; Avanzada obligatoria."
+    }
+  },
+  {
+    "id": "I-10",
+    "lat": -29.907000,
+    "lon": -71.257000,
+    "timestamp": "2026-05-25T17:38:00-04:00",
+    "respuestas_triaje": {
+      "consciente": false,
+      "respira_normal": false,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Echo",
+      "unidad_esperada": "U01",
+      "eta_aprox_min": 2,
+      "regla_aplicada": 1,
+      "nota": "9-E-1 / 31-E-1 paro o ineffective breathing; solo Avanzada."
+    }
+  },
+  {
+    "id": "I-11",
+    "lat": -29.942000,
+    "lon": -71.298000,
+    "timestamp": "2026-05-25T19:04:00-04:00",
+    "respuestas_triaje": {
+      "consciente": false,
+      "respira_normal": false,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Adulto"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Echo",
+      "unidad_esperada": "U07",
+      "eta_aprox_min": 3,
+      "regla_aplicada": 1,
+      "nota": "Validar que no se despacha Básica."
+    }
+  },
+  {
+    "id": "I-12",
+    "lat": -29.895000,
+    "lon": -71.247000,
+    "timestamp": "2026-05-25T21:19:00-04:00",
+    "respuestas_triaje": {
+      "consciente": false,
+      "respira_normal": false,
+      "sangrado": "Ninguno",
+      "dolor_toracico": "Ninguno",
+      "dificultad_respiratoria": false,
+      "grupo_etario": "Anciano"
+    },
+    "ground_truth": {
+      "categoria_mpds": "Echo",
+      "unidad_esperada": "U09",
+      "eta_aprox_min": 2,
+      "regla_aplicada": 1,
+      "nota": "Candidato a re-despacho si U09 EnRuta."
+    }
+  }
+]
