@@ -10,9 +10,7 @@ from sentinel_dispatch.domain.triaje import (
     CategoriaMPDS,
     NivelDolorToracico,
     NivelSangrado,
-    RespuestaTriaje,
 )
-
 
 pytestmark = pytest.mark.unit
 

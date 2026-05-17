@@ -15,7 +15,6 @@ from sentinel_dispatch.domain.triaje import (
     clasificar_mpds,
 )
 
-
 pytestmark = pytest.mark.unit
 
 
