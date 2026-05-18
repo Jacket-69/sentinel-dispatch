@@ -53,6 +53,20 @@ class TestEnumsRespuesta:
     def test_nivel_dolor_toracico_tiene_tres_niveles(self) -> None:
         assert {n.value for n in NivelDolorToracico} == {"Ninguno", "Presente", "Crítico"}
 
+    def test_nivel_sangrado_rechaza_valor_invalido(self) -> None:
+        # Caso de error: construir el enum con un valor fuera del dominio
+        # debe fallar antes de llegar al árbol. Protege el contrato del
+        # adapter de entrada (interfaces/cli o /api) que deserializa JSON.
+        with pytest.raises(ValueError, match="Inexistente"):
+            NivelSangrado("Inexistente")
+
+    def test_categoria_mpds_rechaza_valor_invalido(self) -> None:
+        # Caso de error: el dataset y el output del árbol solo aceptan los
+        # cinco niveles MPDS declarados. Cualquier string fuera del enum
+        # debe rechazarse al deserializar.
+        with pytest.raises(ValueError, match="Foxtrot"):
+            CategoriaMPDS("Foxtrot")
+
 
 class TestRespuestaTriaje:
     """Dataclass inmutable de las respuestas del operador."""
