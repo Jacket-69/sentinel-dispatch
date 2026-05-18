@@ -52,6 +52,9 @@ dev = [
     "pre-commit>=4.0",
 ]
 
+[project.scripts]
+sentinel = "sentinel_dispatch.interfaces.cli.app:app"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -140,7 +143,7 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
-    "--cov=src/sentinel_dispatch",
+    "--cov=sentinel_dispatch",
     "--cov-report=term-missing",
     # F0: threshold en 0 durante scaffolding. Subir a 70 cuando los módulos de
     # dominio (triaje/routing/dispatch) tengan código real en F3.
@@ -156,7 +159,7 @@ markers = [
 
 [tool.coverage.run]
 branch = true
-source = ["src/sentinel_dispatch"]
+source = ["sentinel_dispatch"]
 
 [tool.coverage.report]
 exclude_lines = [
