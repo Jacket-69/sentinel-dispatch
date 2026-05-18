@@ -12,12 +12,21 @@ from __future__ import annotations
 
 import math
 
-V_MAX_KMH: float = 140.0
-"""Velocidad máxima del sistema en km/h (SRS sec. 2.6-B).
+V_MAX_KMH: float = 180.0
+"""Velocidad máxima absoluta del sistema en km/h.
 
 Cota superior sobre la velocidad efectiva de cualquier arista bajo
-cualquier combinación de ``factor_hora * factor_sirena``. Garantiza la
-admisibilidad de :func:`haversine_segundos`.
+cualquier combinación realista de ``factor_hora * factor_sirena``.
+Garantiza la admisibilidad de :func:`haversine_segundos` (la heurística
+nunca sobreestima el costo real).
+
+Cálculo del techo: arista más rápida en la tabla Chile (ADR-0010 §2) =
+``motorway = 120 km/h``. Factor combinado más rápido = ``factor_hora *
+factor_sirena`` con ``factor_hora <= 1`` (1.0 es hora valle; valores
+menores ralentizan por tráfico) y ``factor_sirena = 1.4`` (SRS sec.
+2.6-B, sirena activa). Pico real ``120 * 1.0 * 1.4 = 168 km/h``. Se
+adopta ``V_MAX = 180`` con margen del 7 % para absorber outliers del
+grafo OSM o futuras variaciones de la tabla horaria.
 """
 
 V_MAX_MS: float = V_MAX_KMH * 1000.0 / 3600.0
