@@ -209,17 +209,28 @@ class OsmnxGrafoVial:
         Valida que ``lat in [-30.5, -29.5]`` y ``lon in [-71.7, -70.5]`` (SRS RN-01).
         Si las coordenadas están fuera de rango, lanza :exc:`NodoFueraDeRangoError`.
 
-        Nota OSMnx 2.x: :func:`ox.nearest_nodes` usa keywords ``X`` (lon) e ``Y``
-        (lat) en singular, no arrays. Distinto de 1.x donde los parámetros
-        posicionales aceptaban arrays directamente.
+        Implementación: barrido lineal sobre los nodos del grafo con Haversine.
+        Para 16-20k nodos del bbox de Coquimbo el costo es < 50 ms por snap,
+        despreciable frente a la latencia del A*. Se evita ``ox.nearest_nodes``
+        porque sobre un grafo no-proyectado (lat/lon EPSG:4326) requiere
+        ``scikit-learn`` como dependencia opcional, y el proyecto restringe
+        dependencias pesadas sin ADR previo (anti-patrón documentado).
         """
         if not (_LAT_MIN <= lat <= _LAT_MAX) or not (_LON_MIN <= lon <= _LON_MAX):
             raise NodoFueraDeRangoError(
                 f"Coordenadas ({lat}, {lon}) fuera del area de cobertura "
                 f"IV Region (lat in [{_LAT_MIN}, {_LAT_MAX}], lon in [{_LON_MIN}, {_LON_MAX}])."
             )
-        nodo: int = ox.nearest_nodes(self.grafo, X=lon, Y=lat)
-        return NodoId(nodo)
+        mejor_nodo: NodoId | None = None
+        mejor_distancia = float("inf")
+        for nodo_id, datos in self.grafo.nodes(data=True):
+            distancia = haversine_m(lat, lon, float(datos["y"]), float(datos["x"]))
+            if distancia < mejor_distancia:
+                mejor_distancia = distancia
+                mejor_nodo = NodoId(nodo_id)
+        if mejor_nodo is None:
+            raise NodoFueraDeRangoError("El grafo no contiene nodos.")
+        return mejor_nodo
 
     def distancia_snap_m(self, lat: float, lon: float, nodo: NodoId) -> float:
         """Distancia en metros entre la coordenada original y el nodo snapeado.
