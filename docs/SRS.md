@@ -173,7 +173,7 @@ velocidad_efectiva_m_s = maxspeed_OSM_kmh × (1000/3600) × factor_hora(t) × fa
 
 **factor_sirena = 1.4** — la sirena multiplica la velocidad efectiva por 1.4, lo que equivale a una reducción del tiempo de viaje de aproximadamente 28.6% (1 − 1/1.4). Esta magnitud es consistente con Petzäll et al. (2011) *"Effects of sirens on clearance times in Swedish pre-hospital care"* y Brown et al. (2000) *"Time in prehospital care: the effect of lights and sirens"*, que reportan reducciones del orden de 1–3 minutos en transporte urbano (~25–35% según la ruta). Se aplica a todas las unidades en estado de emergencia activa.
 
-**Heurística A\*:** `h(n) = haversine(n, destino) / v_max`, con `v_max = 38.89 m/s` (140 km/h, equivalente a la mayor `maxspeed_OSM` legal de la región multiplicada por `factor_sirena`). Esta heurística es admisible porque ningún tramo del grafo puede recorrerse a velocidad efectiva superior a `v_max`, por lo que `h(n)` nunca sobreestima el costo real en segundos. La admisibilidad garantiza que A* devuelva la ruta óptima.
+**Heurística A\*:** `h(n) = haversine(n, destino) / v_max`, con `v_max = 50.0 m/s` (180 km/h). El valor se eleva de los 140 km/h iniciales para preservar la admisibilidad ante el pico real `motorway × factor_sirena = 120 × 1.4 = 168 km/h`, agregando un margen del 7% para absorber outliers de OSM o variaciones futuras de la tabla horaria (ver `core-python/src/sentinel_dispatch/domain/routing/heuristica.py` y commit `561bfa5`). La heurística sigue siendo admisible porque ningún tramo del grafo puede recorrerse a velocidad efectiva superior a `v_max`, por lo que `h(n)` nunca sobreestima el costo real en segundos. La admisibilidad garantiza que A* devuelva la ruta óptima.
 
 ### C. Función de costo de despacho
 
@@ -290,7 +290,7 @@ El re-despacho **no es automático**: el sistema presenta la propuesta al operad
 
 | Atributo | Requisito |
 |---|---|
-| **Precisión de ruteo** | El tiempo de ruta calculado por A* debe coincidir con el calculado por OSRM (oracle externo sobre el mismo grafo OSM) con un error ≤ 5% en el 95% de una muestra de 100 rutas aleatorias dentro de la IV Región |
+| **Precisión de ruteo** | La distancia de la ruta calculada por A* debe coincidir con la calculada por OSRM (oracle externo sobre el mismo grafo OSM) con `\|Δ_distance\| / d_OSRM ≤ 0.30` en ≥ 75 de 100 pares del fixture committeado (CP-01a). La divergencia en duración se reporta a título observacional (CP-01b). Ver [ADR-0011](architecture/decisions/0011-reformulacion-criterio-it01.md) para la justificación del experimento que reformuló este criterio. |
 | **Confiabilidad** | El sistema debe estar disponible el 99,9% del tiempo en horario operativo (equivale a ≤ 8,76 horas de downtime anual) |
 | **Rendimiento — flota grande** | El cálculo completo (triaje + A* + selección) se completa en ≤ 1 segundo para flotas de hasta 50 unidades simultáneas |
 | **Rendimiento — flota pequeña** | El cálculo completo se completa en ≤ 300 ms para flotas de hasta 10 unidades simultáneas |

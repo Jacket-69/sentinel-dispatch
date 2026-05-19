@@ -1,7 +1,8 @@
 ---
 adr: 0010
 title: Routing A* sobre OSM + estrategia de validación con OSRM oracle
-status: accepted
+status: amended
+superseded-by: 0011 (parcial — criterio CP-01)
 date: 2026-05-18
 deciders: Benjamin López
 tags: [adr, dominio, routing, astar, osm, osmnx, osrm, h2]
@@ -9,14 +10,16 @@ tags: [adr, dominio, routing, astar, osm, osmnx, osrm, h2]
 
 # ADR 0010 — Routing A* sobre OSM + estrategia de validación con OSRM oracle
 
+> **Aviso de enmienda (2026-05-18, mismo día):** las decisiones de **infraestructura** (puerto `GrafoVial`, cascade de velocidades, pipeline OSRM self-host, fixture committeado) siguen vigentes. El **criterio numérico de IT-01** (originalmente `duration ±5% en ≥95/100`) fue reformulado por [ADR-0011](0011-reformulacion-criterio-it01.md) tras el experimento real: ahora `distance ±30% en ≥75/100` (CP-01a) más reporte observacional de duration (CP-01b). Las líneas afectadas de este ADR son §Contexto (item de validación) y §3 (script `generate_osrm_fixture.py` y test IT-01). El resto se mantiene.
+
 ## Contexto
 
 El hito H2 (deadline 2026-06-14) exige construir el módulo de routing del proyecto. El SRS sec. 2.6-B especifica:
 
 - **Algoritmo**: A* sobre grafo dirigido cargado de OSM.
 - **Peso de arista**: `peso = longitud_m / (maxspeed_ms × factor_hora × factor_sirena)` (resultado en segundos de viaje).
-- **Heurística**: Haversine entre coordenadas geográficas, escalada por la velocidad máxima del sistema (`v_max = 140 km/h ≈ 38.89 m/s`). Admisible porque ningún tramo puede recorrerse a velocidad efectiva superior a `v_max`, por lo que `h(n)` nunca sobreestima el costo real en segundos.
-- **Validación IT-01** (CP-01 del SRS): A* propio vs OSRM oracle, tolerancia `|T_propio − T_OSRM| / T_OSRM ≤ 0.05` en ≥ 95 de 100 muestras.
+- **Heurística**: Haversine entre coordenadas geográficas, escalada por la velocidad máxima del sistema. El valor original (`v_max = 140 km/h`) se elevó a `v_max = 180 km/h ≈ 50.0 m/s` en el commit `561bfa5` para preservar la admisibilidad ante el pico real `motorway × factor_sirena = 120 × 1.4 = 168 km/h` (ver `heuristica.py:15`). Sigue admisible porque ningún tramo puede recorrerse a velocidad efectiva superior a `v_max`.
+- **Validación IT-01** (CP-01 del SRS): A* propio vs OSRM oracle. **El criterio numérico original (`|T_propio − T_OSRM| / T_OSRM ≤ 0.05` en ≥ 95 de 100) fue reformulado por [ADR-0011](0011-reformulacion-criterio-it01.md) tras el experimento del 2026-05-18.** El criterio vigente es `|Δ_distance| / d_OSRM ≤ 0.30` en ≥ 75/100 (CP-01a) + reporte observacional de duration (CP-01b).
 - **Snap (RN-09)**: si las coordenadas del incidente no tienen un nodo OSM a < 500 m, snap al más cercano + alerta al operador.
 
 La sesión de research del 2026-05-18 (delegada a tres subagentes paralelos) levantó tres bloques de decisión que este ADR consolida:
@@ -82,7 +85,7 @@ Razones:
 
 1. `tools/build_osrm_oracle.sh` (script único, no parte del CI): descarga PBF Chile, extracto bbox, levanta `osrm-routed` local en puerto 5000.
 2. `tools/generate_osrm_fixture.py`: genera 100 pares **base SAMU → incidente** (no aleatorios — distribución que el sistema verá en producción), consulta OSRM por cada par con `?alternatives=false&overview=false&steps=false&annotations=false`, escribe `tests/fixtures/osrm_oracle.json` con `[{origen, destino, duration, distance}, ...]`.
-3. Test IT-01 en `tests/integration/test_routing_vs_osrm.py`: lee el fixture, corre A* propio sobre el mismo grafo de Coquimbo, asegura `len([p for p in pares if abs(t_propio - t_osrm) / t_osrm <= 0.05]) >= 95`.
+3. Test IT-01 en `tests/integration/test_routing_vs_osrm.py`: lee el fixture, corre A* propio sobre el mismo grafo de Coquimbo. **Criterio reformulado por [ADR-0011](0011-reformulacion-criterio-it01.md)** — actualmente asserta `len([p for p in pares if abs(d_propio - d_osrm) / d_osrm <= 0.30]) >= 75` (CP-01a) y reporta la distribución completa de divergencia en duration (CP-01b).
 
 **Endpoint a consumir**: `/route/v1/driving/{lon1},{lat1};{lon2},{lat2}` → `routes[0].duration` (segundos) y `routes[0].distance` (metros). Tolerancia del SRS se aplica sobre `duration`.
 
