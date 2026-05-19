@@ -1,0 +1,4 @@
+esto no es XML valido:
+<raiz sin cerrar
+  atributo_roto = "sin comilla
+</ mal formado
