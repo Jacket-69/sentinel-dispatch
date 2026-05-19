@@ -7,6 +7,18 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — Cierre deuda H1: validador de coordenadas IV Región (RF-01 / RN-01 / CP-09, 2026-05-19)
+- Nuevo paquete de dominio `domain/incidente/` con [`validacion.py`](core-python/src/sentinel_dispatch/domain/incidente/validacion.py): función pura `validar_coordenadas_iv_region(lat, lon)`, excepción `CoordenadasFueraDeRangoError(ValueError)` con mensaje normativo `MENSAJE_FUERA_DE_RANGO` ("Coordenadas fuera del área de cobertura (IV Región).") y constantes `LAT_MIN_IV_REGION` / `LAT_MAX_IV_REGION` / `LON_MIN_IV_REGION` / `LON_MAX_IV_REGION`.
+- Endpoint `POST /v1/incidentes/validar-coordenadas` en [interfaces/api/main.py](core-python/src/sentinel_dispatch/interfaces/api/main.py): responde **200** para coordenadas dentro del bbox y **422** con detalle estructurado (`mensaje`, `lat`, `lon`, `rango_iv_region`) cuando caen fuera.
+- Suite UT `core-python/tests/unit/domain/incidente/test_validacion_coordenadas.py` — 13 tests con taxonomía Normal/Borde/Error/RN, incluido el CP-09 textual.
+- Suite de integración `core-python/tests/integration/test_api_validacion_coordenadas.py` — 7 tests que cubren CP-09 a nivel HTTP, casos válidos y body malformado.
+- [ADR-0012](docs/architecture/decisions/0012-ubicacion-validador-coordenadas.md) documenta la decisión de mover la validación de coordenadas del adapter al dominio (RN-01 es regla de negocio, no preocupación del adapter) y la jerarquía de excepciones resultante.
+
+### Changed — Cierre deuda H1
+- `adapters/grafo_osmnx.py`: `nodo_mas_cercano` ahora delega al validador de dominio como segunda barrera; se eliminaron las constantes locales `_LAT_MIN`/`_LAT_MAX`/`_LON_MIN`/`_LON_MAX`. El mensaje del error se unifica con el normativo del CP-09.
+- `domain/routing/tipos.py`: `NodoFueraDeRangoError` pasa a ser subclase de `CoordenadasFueraDeRangoError`, manteniendo el constructor `(mensaje, *, lat, lon)` para no romper call-sites históricos.
+- `docs/quality/trazabilidad.md`: RF-01 y RN-01 marcados ✅ con función implementada y tests verificados; nueva §5.4 (módulo `domain/incidente/`, 13 UT + 7 integración).
+
 ### Added — H2 cierre (routing IT-01 + RN-09, 2026-05-18)
 - Pipeline OSRM oracle self-host: `tools/build_osrm_oracle.sh` levanta `osrm-routed --algorithm mld` en Docker con bbox La Serena-Coquimbo extraído del PBF Chile vía `osmium-tool`. `tools/generate_osrm_fixture.py` produce `core-python/tests/fixtures/osrm_oracle.json` (100 pares `base SAMU × incidente_con_jitter`).
 - `core-python/scripts/build_graph.py` materializa `data/graphs/coquimbo.graphml` (16 679 nodos, 42 508 aristas) — caché reproducible para IT-01, commiteada al repo (excepción explícita en `.gitignore`).
