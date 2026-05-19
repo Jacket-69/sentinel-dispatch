@@ -66,6 +66,44 @@ Si tomas una decisión que cumple **al menos una** de:
 
 → escribe un ADR en `docs/architecture/decisions/NNNN-<slug>.md` siguiendo `0000-template.md`.
 
+## Spike-before-CP — convención del equipo
+
+> Lección retroactiva del incidente CP-01 (ADR-0011): el criterio
+> `|Δ_duration|/T_OSRM ≤ 0.05` se redactó en el SRS sin correr el
+> experimento ni revisar literatura, y resultó **inalcanzable** con el
+> A* simple del SRS. La corrección costó ADR-0011 completo + reformulación
+> CP-01a + 22 outliers descompuestos. Para que no vuelva a pasar:
+
+**Antes de aceptar un Caso de Prueba (CP) nuevo en el SRS, el equipo debe
+ejecutar un *spike* empírico de viabilidad:**
+
+1. Implementación mínima (puede ser ad-hoc en `tools/` o un cuaderno) que
+   produzca el estadístico del CP sobre datos reales o un subset
+   representativo.
+2. Verificar que el criterio es **alcanzable** con la arquitectura
+   propuesta — no por intuición, por número medido.
+3. Documentar el resultado del spike en el ADR que introduce el CP, en
+   una sección **Spike de viabilidad** con: dataset usado, métrica
+   obtenida, decisión (aceptar / ajustar criterio / rechazar).
+4. Si el spike revela que el criterio original no es alcanzable, **se
+   ajusta antes** de entrar al SRS, no después (ADR-0011 es el contraejemplo
+   de qué pasa si se invierte el orden).
+
+CPs pendientes que requieren spike retroactivo antes de H4 (ADR-0011
+§V/L#1):
+
+- **CP-08** — *intento de edición del log JSONL*: spike = abrir un JSONL
+  ya escrito, intentar editarlo, verificar que el adapter detecta la
+  mutación. Si la detección depende de hashes/checksums fuera del scope
+  del SRS, ajustar CP-08 antes de aceptarlo en H4.
+- **CP-12** — *performance 50 unidades ≤ 1000 ms*: spike = generar
+  dataset sintético de 50 unidades, correr el orquestador, medir
+  wall-clock. Si la métrica está fuera del orden de magnitud, ajustar
+  CP-12 (p. ej., a ≤ 2000 ms o reducir N) antes de aceptarlo.
+
+Ambos spikes son responsabilidad del PR que abra H4 y deben aparecer en
+ADRs subsecuentes (0016+) como sección "Spike de viabilidad".
+
 ## Reportar un bug
 
 Abre issue en GitHub con: descripción, pasos para reproducir, comportamiento esperado vs observado, versión, logs relevantes (sin datos sensibles).
