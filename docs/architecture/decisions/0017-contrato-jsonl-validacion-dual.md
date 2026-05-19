@@ -36,7 +36,7 @@ este ADR, actualizar el espejo Java y regenerar los fixtures de referencia.
 ### Schema — despacho exitoso (motivo in {OPTIMO, PENALIZADO, SUBOPTIMO_RN02})
 
 ```json
-{"incidente_id":"I-01","categoria_mpds":"Alpha","unidad_seleccionada":{"id":"U02"},"despacho_suboptimo":false,"motivo":"optimo","eta_segundos":187.42,"costo":{"T_viaje":187.42,"penalizacion":0.0,"total":187.42},"ruta":[]}
+{"incidente_id":"I-01","categoria_mpds":"Alpha","unidad_seleccionada":{"id":"U02"},"despacho_suboptimo":false,"motivo":"optimo","eta_segundos":187.42,"costo":{"T_viaje":187.42,"penalizacion":0.0,"total":187.42},"ruta":["123456","234567"]}
 ```
 
 ### Schema — saturacion (motivo=SATURACION)
@@ -96,12 +96,14 @@ garantiza exactitud en todos los lenguajes sin perdida. La ruta se emite
 siempre como array (vacio en saturacion, no `null`) para que el comparador
 pueda iterar sin verificar tipo.
 
-**Nota sobre ruta vacia en v1**: el orquestador actual (`ResultadoDespacho`)
-no expone la ruta de nodos — el A* la calcula internamente en
-`_calcular_tiempos_viaje` pero no la persiste en el resultado. En esta
-primera version del schema la ruta se emite como `[]`. La extension para
-incluir la ruta real requiere modificar `ResultadoDespacho` y el orquestador,
-lo que es scope de un PR separado con ADR propio.
+**Nota sobre ruta vacia en v1**: el orquestador original (`ResultadoDespacho`)
+no exponia la ruta de nodos — el A* la calculaba internamente en
+`_calcular_tiempos_viaje` pero no la persistia en el resultado. En la
+primera version del schema la ruta se emitia como `[]`. **Resuelto en
+H3-J-1b (PR #15)**: `ResultadoDespacho` ahora incluye el campo
+`ruta_nodos: tuple[int, ...]` con la ruta de la unidad elegida, y el
+serializador JSONL la emite como array de strings. La ruta sigue siendo
+`[]` solo en el caso `SATURACION` (sin unidad elegida).
 
 ### Reglas de serializacion
 
@@ -160,8 +162,9 @@ lo que es scope de un PR separado con ADR propio.
   (2) actualizar `run_dataset_cmd.py`, (3) actualizar el espejo Java,
   (4) regenerar fixtures. Riesgo de drift; mitigacion: el job `compare`
   falla en cuanto los outputs divergen.
-- El campo `ruta` se emite vacio en v1 (ver nota arriba); esto es una
-  limitacion conocida documentada.
+- El campo `ruta` se emitia vacio en v1 (limitacion documentada en la nota
+  arriba); resuelto en H3-J-1b (PR #15) con `ruta_nodos` en
+  `ResultadoDespacho`. La ruta sigue siendo `[]` solo en `SATURACION`.
 
 ### Neutras
 
