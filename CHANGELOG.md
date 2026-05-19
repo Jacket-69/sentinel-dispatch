@@ -7,6 +7,14 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H3 fase 2: selección óptima + re-despacho (RF-05 / RF-08 / RN-06, 2026-05-19)
+- [`domain/dispatch/seleccion.py`](core-python/src/sentinel_dispatch/domain/dispatch/seleccion.py): `seleccionar_unidad(unidades, incidente, tiempos_viaje) → ResultadoSeleccion` con `argmin` y **desempate lexicográfico por `unidad.id`** (CP-11). Excluye Taller silenciosamente (RN-04) y devuelve `elegida=None` cuando todas las unidades resultan con costo `inf`. Auxiliar `hay_cobertura_alternativa(unidad, incidente, flota, tiempos)` para RN-06.
+- [`domain/dispatch/redespacho.py`](core-python/src/sentinel_dispatch/domain/dispatch/redespacho.py): `evaluar_redespacho(unidad_actual, incidente_actual, incidente_nuevo, progreso_pct, flota, tiempos) → PropuestaRedespacho`. Evalúa las tres condiciones de RN-06 en orden (criticidad creciente → progreso ≤ 50% → cobertura alternativa) y emite veredicto humanlegible vía el campo `razon`. La propuesta nunca se ejecuta; la confirmación del operador vive en `interfaces/` (PR posterior). Constante `UMBRAL_PROGRESO_MAXIMO=0.50`.
+- Tests unitarios: **15 en `test_seleccion.py`** (Normal 3 + Borde 3 + Error 3 + RN 4 + `hay_cobertura_alternativa` 4) cubriendo CP-04 + CP-05 + CP-11 + RN-04. **14 en `test_redespacho.py`** (Normal 2 + Borde 3 + Error 1 + RN 8) cubriendo CP-06 + CP-07 + las 3 condiciones RN-06 + borde 50% exacto + caso "Básica como reemplazo válido para Charlie".
+
+### Changed — H3 fase 2
+- `docs/quality/trazabilidad.md`: RF-05, RF-08 y RN-06 marcados ✅ H3 fase 2; nueva §5.5 con desglose de los 67 tests del módulo `domain/dispatch/`.
+
 ### Added — H3 fase 1: tipos del dominio dispatch + función de costo (RF-04, 2026-05-19)
 - Nuevo paquete `domain/dispatch/` con tipos del dominio: enums `TipoUnidad` (Avanzada / Básica) y `EstadoUnidad` (Disponible / EnRuta / EnEscena / Taller); dataclasses frozen `Unidad`, `Incidente` y value object `CostoDespacho` con desglose para auditoría (RF-06 / log JSONL).
 - [`domain/dispatch/funcion_costo.py`](core-python/src/sentinel_dispatch/domain/dispatch/funcion_costo.py): implementación de la fórmula del SRS sec. 2.6-C — `Costo(u, i) = α·T_viaje + β·Penalización_Idoneidad` con `α=1.0`, `β=600s`. Tabla `TABLA_PENALIZACION_IDONEIDAD` exhaustiva (10 entradas: Echo/Delta+Básica → `math.inf`, Charlie+Básica → 1.0, resto → 0.0). Excepciones de dominio `UnidadInelegibleError` (RN-04 — Taller excluido) y `TViajeInvalidoError` (NaN o negativo).
