@@ -7,6 +7,17 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H3 fase 3: orquestador + saturación + fallback RN-02 (RF-10 / RN-02 / RN-08, 2026-05-19)
+- Nueva capa `application/` con tres archivos:
+  - [`application/tipos.py`](core-python/src/sentinel_dispatch/application/tipos.py) — value objects inmutables `ResultadoDespacho`, `EstadoSaturacion`, `CandidataRedireccion` + enum `MotivoDespacho` (`OPTIMO` / `PENALIZADO` / `SUBOPTIMO_RN02` / `SATURACION`).
+  - [`application/saturacion.py`](core-python/src/sentinel_dispatch/application/saturacion.py) — `detectar_saturacion(flota, progreso_por_unidad)` reporta saturación cuando ninguna unidad está `DISPONIBLE` y lista candidatas EnRuta ordenadas por `(progreso_pct asc, unidad.id lex asc)`.
+  - [`application/despachar_ambulancia.py`](core-python/src/sentinel_dispatch/application/despachar_ambulancia.py) — `despachar(incidente, flota, grafo, factor_hora, factor_sirena, progreso_por_unidad)` orquesta snap + A* + función de costo + `argmin` + fallback RN-02 + detección de saturación. Cuatro caminos posibles según `MotivoDespacho`.
+- **Política de fallback RN-02** implementada en `_fallback_rn02_basica`: cuando todas las Disponibles tienen costo `inf` (Echo/Delta + flota solo Básica), elige la Básica de menor `T_viaje` (desempate lex por `unidad.id`), marca `despacho_suboptimo=True` y emite `logging.WARNING`. El costo reportado preserva `valor_total_s=inf` + `t_viaje_s` real, para que el log JSONL (RF-06, H4) registre la sub-optimalidad bit-exacta sin enmascararla.
+- [ADR-0015](docs/architecture/decisions/0015-fallback-rn02-suboptimo.md) documenta seis decisiones D1-D6: ubicación del fallback en application, selección por menor `T_viaje`, costo reportado como ∞ (no artificial), flag explícito, log warning, orden de evaluación. Tabla resumen de los cuatro `MotivoDespacho`.
+
+### Changed — H3 fase 3
+- `docs/quality/trazabilidad.md`: RF-10, RN-02 y RN-08 marcados ✅ H3 fase 3; nueva §5.6 con la capa application; §5.7 lista los pendientes de H4 (log JSONL, exportador, RT-01..04).
+
 ### Added — H3 fase 2: selección óptima + re-despacho (RF-05 / RF-08 / RN-06, 2026-05-19)
 - [`domain/dispatch/seleccion.py`](core-python/src/sentinel_dispatch/domain/dispatch/seleccion.py): `seleccionar_unidad(unidades, incidente, tiempos_viaje) → ResultadoSeleccion` con `argmin` y **desempate lexicográfico por `unidad.id`** (CP-11). Excluye Taller silenciosamente (RN-04) y devuelve `elegida=None` cuando todas las unidades resultan con costo `inf`. Auxiliar `hay_cobertura_alternativa(unidad, incidente, flota, tiempos)` para RN-06.
 - [`domain/dispatch/redespacho.py`](core-python/src/sentinel_dispatch/domain/dispatch/redespacho.py): `evaluar_redespacho(unidad_actual, incidente_actual, incidente_nuevo, progreso_pct, flota, tiempos) → PropuestaRedespacho`. Evalúa las tres condiciones de RN-06 en orden (criticidad creciente → progreso ≤ 50% → cobertura alternativa) y emite veredicto humanlegible vía el campo `razon`. La propuesta nunca se ejecuta; la confirmación del operador vive en `interfaces/` (PR posterior). Constante `UMBRAL_PROGRESO_MAXIMO=0.50`.
