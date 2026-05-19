@@ -7,6 +7,16 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — Blindaje defensa Segunda Evaluación (ADR-0011 + ADR-0013, 2026-05-19)
+- `tools/analyze_outliers.py` clasifica los 22 outliers del fixture OSRM por causa probable (`snap_endpoints`, `snap_corto`, `via_filtrada`, `turn_penalty`, `simplify`, `residual`) con umbrales heurísticos documentados en el módulo. Resultado: 68% snap-to-node + 14% filtrado `car.lua` + 18% residual.
+- `docs/quality/outliers-cp01a.md` y `.csv` con la tabla detallada por par (id, d_propio, d_OSRM, err_rel, n_giros, %vía filtrada, causa). Regenerable con `uv run --project core-python python tools/analyze_outliers.py`.
+- [ADR-0013](docs/architecture/decisions/0013-cp01c-criterio-calibrado.md) — placeholder `CP-01c` (`duration ±15% en ≥ 85/100`) como criterio numérico esperable tras aplicar `factor_calibracion=0.85` + turn penalties simples en H4.
+- Fixture `osrm_oracle.json` migrado a **v2** con metadata explícita del jitter (`radio_grados=0.0013`, distribución `uniform`, seed `2026`, generador `random.Random(seed).uniform`, `jitters_por_incidente=10`) y `distancia_minima_m=200.0`. El generador `tools/generate_osrm_fixture.py` también incluye estos campos para regeneraciones futuras.
+
+### Changed — Blindaje defensa
+- [ADR-0011](docs/architecture/decisions/0011-reformulacion-criterio-it01.md) extendido con: (a) sección "Cómo se generan los pares (jitter)" en Contexto; (b) tabla "Descomposición empírica de los 22 outliers (2026-05-19)" con conteo por causa; (c) nueva sección "Verdad y limitaciones" que reconoce explícitamente que el CP-01 original del SRS no fue validado empíricamente antes de redactarse, y enumera otras debilidades del experimento (heurísticas del clasificador, sesgo de la muestra hacia rutas urbanas cortas, margen estrecho 78/100 vs 75/100, ausencia de aislamiento experimental de las cinco fuentes de divergencia).
+- `docs/quality/trazabilidad.md` §5.3 añade párrafo "Blindaje defensa" con los porcentajes empíricos y links a outliers + ADR-0013.
+
 ### Added — Cierre deuda H1: validador de coordenadas IV Región (RF-01 / RN-01 / CP-09, 2026-05-19)
 - Nuevo paquete de dominio `domain/incidente/` con [`validacion.py`](core-python/src/sentinel_dispatch/domain/incidente/validacion.py): función pura `validar_coordenadas_iv_region(lat, lon)`, excepción `CoordenadasFueraDeRangoError(ValueError)` con mensaje normativo `MENSAJE_FUERA_DE_RANGO` ("Coordenadas fuera del área de cobertura (IV Región).") y constantes `LAT_MIN_IV_REGION` / `LAT_MAX_IV_REGION` / `LON_MIN_IV_REGION` / `LON_MAX_IV_REGION`.
 - Endpoint `POST /v1/incidentes/validar-coordenadas` en [interfaces/api/main.py](core-python/src/sentinel_dispatch/interfaces/api/main.py): responde **200** para coordenadas dentro del bbox y **422** con detalle estructurado (`mensaje`, `lat`, `lon`, `rango_iv_region`) cuando caen fuera.
