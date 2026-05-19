@@ -130,10 +130,10 @@ def _serializar_resultado(resultado: ResultadoDespacho) -> dict[str, Any]:
             "total": total,
         }
 
-    # La ruta no está en ResultadoDespacho; el orquestador actual no la expone.
-    # Se emite siempre como lista vacía (el campo existe para el espejo Java;
-    # la extensión para incluir la ruta real es trabajo futuro documentado en ADR-0017).
-    ruta: list[str] = []
+    # Ruta de nodos de la unidad elegida, serializada como strings para evitar
+    # drift de int64 en parsers JSON de otros lenguajes (Java Long, etc.).
+    # En saturación ruta_nodos es () → ruta queda []. (ADR-0017 §ruta)
+    ruta: list[str] = [str(n) for n in resultado.ruta_nodos]
 
     return {
         "incidente_id": incidente.id,

@@ -117,6 +117,14 @@ class ResultadoDespacho:
         saturacion: :class:`EstadoSaturacion` cuando ``motivo`` es
             ``SATURACION``, o ``None``. Contiene las candidatas EnRuta
             que el operador puede redirigir manualmente (CP-10).
+        ruta_nodos: tupla de IDs de nodo OSMnx que el A* encontró para
+            la unidad **elegida** (no para todas las candidatas
+            evaluadas, solo la ganadora). Vacía cuando
+            ``motivo == SATURACION`` (no hay ganadora) o cuando la
+            unidad elegida no tiene ruta disponible. Los IDs son los
+            mismos ``int`` que retorna :func:`a_estrella`; la
+            serialización a string para JSONL ocurre en la capa de
+            interfaz (ADR-0017 §ruta).
     """
 
     incidente: Incidente
@@ -126,3 +134,4 @@ class ResultadoDespacho:
     despacho_suboptimo: bool
     candidatos: tuple[CandidatoDespacho, ...]
     saturacion: EstadoSaturacion | None
+    ruta_nodos: tuple[int, ...] = ()
