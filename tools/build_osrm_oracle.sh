@@ -114,9 +114,10 @@ docker run -d \
     "${IMG_OSRM}" \
     osrm-routed --algorithm mld "/data/${OSRM_BASENAME}.osrm" >/dev/null
 
-# Espera activa (máx 30 s) a que /status responda 200.
+# Espera activa (máx 60 s) a que /status responda 200. Cold-start MLD sobre
+# Coquimbo toma ~5-15 s en host frío; el techo previo de 30 s era ajustado.
 log "Esperando OSRM en http://localhost:${OSRM_PORT}/…"
-for _ in $(seq 1 30); do
+for _ in $(seq 1 60); do
     if curl -fsS "http://localhost:${OSRM_PORT}/nearest/v1/driving/-71.2535,-29.9077" >/dev/null 2>&1; then
         log "OSRM listo en http://localhost:${OSRM_PORT}/"
         log "Para detenerlo: docker stop ${OSRM_CONTAINER} && docker rm ${OSRM_CONTAINER}"
@@ -125,6 +126,6 @@ for _ in $(seq 1 30); do
     sleep 1
 done
 
-log "ERROR: OSRM no respondió en 30 s. Logs:"
+log "ERROR: OSRM no respondió en 60 s. Logs:"
 docker logs "${OSRM_CONTAINER}" | tail -20
 exit 1

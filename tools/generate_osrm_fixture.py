@@ -105,12 +105,25 @@ def generar_candidatos(
     return candidatos
 
 
+class MotivoDescarte:
+    """Etiquetas de descarte para contar separadamente cada causa."""
+
+    RED = "red"  # error de red, timeout, JSON malformado, status no 200
+    SIN_RUTA = "sin_ruta"  # OSRM respondió Ok pero sin routes
+    DISTANCIA_CORTA = "distancia_corta"  # ruta válida pero < DISTANCIA_MINIMA_M
+
+
 def consultar_osrm(
     cliente: httpx.Client,
     origen: tuple[float, float],
     destino: tuple[float, float],
-) -> tuple[float, float] | None:
-    """Consulta /route/v1/driving y retorna (duration_s, distance_m) o None."""
+) -> tuple[float, float] | str:
+    """Consulta /route/v1/driving.
+
+    Returns:
+        ``(duration_s, distance_m)`` si OSRM devolvió una ruta válida; en caso
+        contrario una etiqueta de :class:`MotivoDescarte` indicando la causa.
+    """
     lat1, lon1 = origen
     lat2, lon2 = destino
     url = f"/route/v1/driving/{lon1:.6f},{lat1:.6f};{lon2:.6f},{lat2:.6f}"
@@ -122,14 +135,14 @@ def consultar_osrm(
     }
     try:
         resp = cliente.get(url, params=params, timeout=TIMEOUT_S)
-    except httpx.RequestError as exc:
-        logging.warning("Error de red: %s", exc)
-        return None
-    if resp.status_code != 200:
-        return None
-    data = resp.json()
+        if resp.status_code != 200:
+            return MotivoDescarte.RED
+        data = resp.json()
+    except (httpx.RequestError, json.JSONDecodeError) as exc:
+        logging.warning("Error consultando OSRM: %s", exc)
+        return MotivoDescarte.RED
     if data.get("code") != "Ok" or not data.get("routes"):
-        return None
+        return MotivoDescarte.SIN_RUTA
     ruta = data["routes"][0]
     return float(ruta["duration"]), float(ruta["distance"])
 
@@ -140,7 +153,11 @@ def generar_fixture() -> dict[str, Any]:
     rng = random.Random(SEED)
     candidatos = generar_candidatos(bases, incidentes, rng)
     pares: list[dict[str, Any]] = []
-    descartes = 0
+    descartes: dict[str, int] = {
+        MotivoDescarte.RED: 0,
+        MotivoDescarte.SIN_RUTA: 0,
+        MotivoDescarte.DISTANCIA_CORTA: 0,
+    }
 
     with httpx.Client(base_url=OSRM_BASE_URL) as cliente:
         # Health-check inicial — falla rápido si OSRM no está arriba.
@@ -156,12 +173,12 @@ def generar_fixture() -> dict[str, Any]:
                 break
 
             resultado = consultar_osrm(cliente, origen, destino)
-            if resultado is None:
-                descartes += 1
+            if isinstance(resultado, str):
+                descartes[resultado] += 1
                 continue
             duration, distance = resultado
             if distance < DISTANCIA_MINIMA_M:
-                descartes += 1
+                descartes[MotivoDescarte.DISTANCIA_CORTA] += 1
                 continue
 
             pares.append(
@@ -182,9 +199,12 @@ def generar_fixture() -> dict[str, Any]:
             time.sleep(0.015)
 
     if len(pares) < PARES_OBJETIVO:
+        # Si predomina `red`, el problema es OSRM (caído, lento, malformado);
+        # si predomina `sin_ruta`, el bbox/SCC no alcanza; si predomina
+        # `distancia_corta`, hay que aumentar JITTERS_POR_INCIDENTE.
         raise SystemExit(
-            f"Solo {len(pares)} pares válidos de {len(candidatos)} candidatos "
-            f"(descartes={descartes}). Aumentar JITTERS_POR_INCIDENTE."
+            f"Solo {len(pares)} pares válidos de {len(candidatos)} candidatos. "
+            f"Descartes por causa: {descartes}. Diagnóstico arriba."
         )
 
     return {
