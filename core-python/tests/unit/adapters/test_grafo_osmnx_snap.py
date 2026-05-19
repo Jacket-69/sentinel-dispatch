@@ -66,14 +66,14 @@ class TestSnapBorde:
 class TestSnapError:
     def test_latitud_fuera_de_rango_inferior_lanza(self, adapter_sintetico: OsmnxGrafoVial) -> None:
         """``lat = -31.0`` < ``LAT_MIN = -30.5`` → NodoFueraDeRangoError."""
-        with pytest.raises(NodoFueraDeRangoError, match="fuera del area de cobertura"):
+        with pytest.raises(NodoFueraDeRangoError, match="cobertura"):
             adapter_sintetico.nodo_mas_cercano(-31.0, -71.30)
 
     def test_longitud_fuera_de_rango_superior_lanza(
         self, adapter_sintetico: OsmnxGrafoVial
     ) -> None:
         """``lon = -70.0`` > ``LON_MAX = -70.5`` → NodoFueraDeRangoError."""
-        with pytest.raises(NodoFueraDeRangoError, match="fuera del area de cobertura"):
+        with pytest.raises(NodoFueraDeRangoError, match="cobertura"):
             adapter_sintetico.nodo_mas_cercano(-29.95, -70.0)
 
     def test_grafo_sin_nodos_lanza(self, grafo_vacio: object) -> None:

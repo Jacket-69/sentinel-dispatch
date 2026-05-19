@@ -29,7 +29,7 @@ La matriz cubre los **doce Requisitos Funcionales** (RF-01..RF-12), las **diez R
 
 | Requisito | Módulo asociado | Función implementada | Caso de prueba | Resultado esperado | Estado |
 |---|---|---|---|---|---|
-| **RF-01** Validación de coordenadas IV Región en tiempo real | `interfaces/api` + `interfaces/cli` | _Validador de rango (pendiente)_ — ver [SRS sec. 2.7 RN-01](../SRS.md#27-reglas-de-negocio) | [CP-09](../SRS.md#213-casos-de-prueba) | Coordenadas fuera de `lat ∈ [−30.5, −29.5] ∧ lon ∈ [−71.7, −70.5]` rechazadas antes de A*; sin log de despacho generado | 🟡 H1 |
+| **RF-01** Validación de coordenadas IV Región en tiempo real | `domain/incidente/` + `interfaces/api` | `validar_coordenadas_iv_region(lat, lon)` ([validacion.py](../../core-python/src/sentinel_dispatch/domain/incidente/validacion.py)) expuesta vía `POST /v1/incidentes/validar-coordenadas` ([main.py](../../core-python/src/sentinel_dispatch/interfaces/api/main.py)); adapter `OsmnxGrafoVial.nodo_mas_cercano` delega como segunda barrera (ADR-0012) | [CP-09](../SRS.md#213-casos-de-prueba) | Coordenadas fuera de `lat ∈ [−30.5, −29.5] ∧ lon ∈ [−71.7, −70.5]` rechazadas con HTTP 422 antes de A*; sin log de despacho generado | ✅ (vía [test_validacion_coordenadas.py](../../core-python/tests/unit/domain/incidente/test_validacion_coordenadas.py) + [test_api_validacion_coordenadas.py](../../core-python/tests/integration/test_api_validacion_coordenadas.py)) |
 | **RF-02** Árbol de triaje MPDS-subset (Alpha..Echo) | `domain/triaje/` → [`arbol.py`](../../core-python/src/sentinel_dispatch/domain/triaje/arbol.py), [`tipos.py`](../../core-python/src/sentinel_dispatch/domain/triaje/tipos.py) | `clasificar_mpds(respuesta)` aplica las 9 reglas del SRS sec. 2.6-A en orden estricto | `test_regla_1_*` .. `test_regla_9_*` (9 tests) + `test_clasificacion_dataset[I-01..I-12]` (12 tests) | Cada respuesta válida produce la categoría MPDS esperada por la regla disparada; 12/12 incidentes del dataset clasificados correctamente | ✅ |
 | **RF-03** Grafo OSM + ruteo A* con pesos calibrados | `domain/routing/` + `adapters/grafo_osmnx.py` | `a_estrella(grafo, origen, destino, factor_hora, factor_sirena)` ([a_estrella.py](../../core-python/src/sentinel_dispatch/domain/routing/a_estrella.py)) | [CP-01a](../SRS.md#213-casos-de-prueba) (paridad de distancia A* vs OSRM ±30%, ADR-0011) · CP-02 (factor_hora) · CP-03 (factor_sirena) | A* propio recorre rutas con `\|Δ_distance\|/d_OSRM ≤ 0.30` en ≥ 75/100 pares del fixture OSRM (78/100 actual); divergencia en duration reportada vía log | ✅ H2 (CP-01a/b vía [test_routing_vs_osrm.py](../../core-python/tests/integration/test_routing_vs_osrm.py)) |
 | **RF-04** Función de costo multiobjetivo `α·T_viaje + β·Penalización_Idoneidad` | `domain/dispatch/` → `funcion_costo.py` | `costo(unidad, incidente, factores=...)` (pendiente) | [CP-04](../SRS.md#213-casos-de-prueba) Charlie+Básica · [CP-05](../SRS.md#213-casos-de-prueba) Echo+Básica | β = 600 s convierte la jerarquía MPDS×Tipo en penalización aditiva; Echo + Básica retorna `+∞` (excluida del argmin) | 🟡 H3 |
@@ -46,7 +46,7 @@ La matriz cubre los **doce Requisitos Funcionales** (RF-01..RF-12), las **diez R
 
 | Regla | Módulo asociado | Función / invariante | Caso de prueba | Resultado esperado | Estado |
 |---|---|---|---|---|---|
-| **RN-01** Validación de rango IV Región | `interfaces/api` | `validar_coordenadas(lat, lon)` (pendiente) | CP-09 | Rechazo con mensaje "Coordenadas fuera del área de cobertura" antes de cualquier cálculo | 🟡 H1 |
+| **RN-01** Validación de rango IV Región | `domain/incidente/validacion.py` | `validar_coordenadas_iv_region(lat, lon)` lanza `CoordenadasFueraDeRangoError` (ValueError) con mensaje normativo `MENSAJE_FUERA_DE_RANGO` (ADR-0012) | CP-09 | Rechazo con mensaje "Coordenadas fuera del área de cobertura (IV Región)." antes de cualquier cálculo | ✅ |
 | **RN-02** Saturación crítica → flag `despacho_suboptimo` (no bloqueo) | `domain/dispatch/` | `marcar_suboptimo(unidad, incidente)` (pendiente) | CP-05 | Echo/Delta con única Básica disponible: despacho ejecutado con `despacho_suboptimo: true` en el log | 🟡 H3 |
 | **RN-03** Log inmutable | `adapters/log_jsonl.py` | Append-only JSONL (ADR-0007) | CP-08 | Edición rechazada; entrada de auditoría adicional generada | 🟡 H4 |
 | **RN-04** Unidades en Taller excluidas | `application/` | `filtrar_disponibles(flota)` (pendiente) | _Test (pendiente)_ | Unidades en `Taller` no aparecen en el `argmin` bajo ninguna circunstancia | 🟡 H3 |
@@ -116,7 +116,22 @@ Suite `core-python/tests/unit/domain/routing/` con **20 tests verdes** distribui
 
 Validación IT-01 con OSRM oracle (CP-01a/b, ADR-0011): [test_routing_vs_osrm.py](../../core-python/tests/integration/test_routing_vs_osrm.py) — assert ≥ 75/100 pares con `|Δ_distance|/d_OSRM ≤ 0.30` (resultado: 78/100). Reporta también la distribución de divergencia en `duration`.
 
-### 5.4 Módulos pendientes — `dispatch/`, `application/`
+### 5.4 Módulo `domain/incidente/` — ✅ cumple (RF-01 / RN-01)
+
+Suite `core-python/tests/unit/domain/incidente/test_validacion_coordenadas.py` con **13 tests verdes**, complementada por **7 tests** de integración del endpoint en `core-python/tests/integration/test_api_validacion_coordenadas.py` (CP-09 a nivel HTTP).
+
+| Tipo | Cantidad | Tests representativos |
+|---|---|---|
+| **Normal** | 3 | `test_coquimbo_centro_no_lanza`, `test_la_serena_centro_no_lanza`, `test_ovalle_no_lanza` (rechazo intencional — Ovalle queda fuera del bbox normativo H1) |
+| **Borde** | 4 | `test_latitud_en_limite_inferior_no_lanza`, `test_latitud_en_limite_superior_no_lanza`, `test_longitud_en_limite_inferior_no_lanza`, `test_longitud_en_limite_superior_no_lanza` |
+| **Error** | 4 | `test_latitud_fuera_de_rango_inferior_lanza`, `test_longitud_fuera_de_rango_superior_lanza`, `test_nan_en_latitud_lanza`, `test_infinito_en_longitud_lanza` |
+| **Regla de Negocio** | 2 | `test_cp09_textual_lat_minus_31_2_lon_minus_71_3` (CP-09 textual SRS sec. 2.13), `test_excepcion_es_subclase_de_value_error` |
+| **Total UT** | **13** | suite `tests/unit/domain/incidente/` |
+| **Integración HTTP** | 7 | `test_api_validacion_coordenadas.py` cubre CP-09 vía 422 con detalle estructurado + casos válidos + body malformado |
+
+Decisión arquitectónica documentada en [ADR-0012](../architecture/decisions/0012-ubicacion-validador-coordenadas.md): el validador vive en dominio, el adapter `OsmnxGrafoVial` delega como segunda barrera, y `NodoFueraDeRangoError` pasa a ser subclase de `CoordenadasFueraDeRangoError` para preservar el contrato del adapter.
+
+### 5.5 Módulos pendientes — `dispatch/`, `application/`
 
 Estos módulos están **diseñados** (SRS + ADR + vista C4) pero su implementación corresponde a hitos posteriores del cronograma (H3/H4). Para la Segunda Evaluación se documentan en esta matriz como `🟡 pendiente` con la función planificada y el caso de prueba del SRS al que responderán. La defensa argumentará: el diseño está cerrado, la implementación se ejecuta secuencialmente para evitar duplicar bugs entre Python y Java (ver [README §Anti-patrones](../../README.md#anti-patrones-detectados)).
 

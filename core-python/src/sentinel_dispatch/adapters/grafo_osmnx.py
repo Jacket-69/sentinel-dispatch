@@ -21,6 +21,10 @@ from typing import TYPE_CHECKING
 import networkx as nx  # noqa: TC002 — usado en runtime como campo del dataclass
 import osmnx as ox
 
+from sentinel_dispatch.domain.incidente.validacion import (
+    CoordenadasFueraDeRangoError,
+    validar_coordenadas_iv_region,
+)
 from sentinel_dispatch.domain.routing.heuristica import haversine_m
 from sentinel_dispatch.domain.routing.tipos import (
     Arista,
@@ -79,13 +83,6 @@ TABLA_HWY_SPEEDS_CHILE: dict[str, float] = {
     "service": 20.0,
 }
 """Defaults de velocidad por tipo de vía para Chile (ADR-0010 §2, tabla)."""
-
-# Límites geográficos para validación de snap (SRS RN-01, IV Región).
-_LAT_MIN: float = -30.5
-_LAT_MAX: float = -29.5
-_LON_MIN: float = -71.7
-_LON_MAX: float = -70.5
-
 
 # ---------------------------------------------------------------------------
 # Función de carga con caché
@@ -206,8 +203,12 @@ class OsmnxGrafoVial:
     def nodo_mas_cercano(self, lat: float, lon: float) -> NodoId:
         """Snap de una coordenada arbitraria al nodo OSM más cercano.
 
-        Valida que ``lat in [-30.5, -29.5]`` y ``lon in [-71.7, -70.5]`` (SRS RN-01).
-        Si las coordenadas están fuera de rango, lanza :exc:`NodoFueraDeRangoError`.
+        Valida que ``(lat, lon)`` esté dentro del bbox IV Región (SRS RN-01)
+        delegando en :func:`validar_coordenadas_iv_region` del dominio
+        ``incidente``. Si las coordenadas están fuera de rango, atrapa
+        :exc:`CoordenadasFueraDeRangoError` y la re-lanza como
+        :exc:`NodoFueraDeRangoError` (subclase) para preservar el contrato
+        de excepciones del adapter (ADR-0012).
 
         Implementación: barrido lineal sobre los nodos del grafo con Haversine.
         Para 16-20k nodos del bbox de Coquimbo el costo es < 50 ms por snap,
@@ -216,11 +217,10 @@ class OsmnxGrafoVial:
         ``scikit-learn`` como dependencia opcional, y el proyecto restringe
         dependencias pesadas sin ADR previo (anti-patrón documentado).
         """
-        if not (_LAT_MIN <= lat <= _LAT_MAX) or not (_LON_MIN <= lon <= _LON_MAX):
-            raise NodoFueraDeRangoError(
-                f"Coordenadas ({lat}, {lon}) fuera del area de cobertura "
-                f"IV Region (lat in [{_LAT_MIN}, {_LAT_MAX}], lon in [{_LON_MIN}, {_LON_MAX}])."
-            )
+        try:
+            validar_coordenadas_iv_region(lat, lon)
+        except CoordenadasFueraDeRangoError as exc:
+            raise NodoFueraDeRangoError(str(exc), lat=lat, lon=lon) from exc
         mejor_nodo: NodoId | None = None
         mejor_distancia = float("inf")
         for nodo_id, datos in self.grafo.nodes(data=True):

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sentinel_dispatch.domain.incidente.validacion import CoordenadasFueraDeRangoError
+
 NodoId = int
 """Identificador de nodo del grafo vial.
 
@@ -55,9 +57,22 @@ class NoRutaDisponibleError(Exception):
     """
 
 
-class NodoFueraDeRangoError(Exception):
-    """Coordenadas fuera del área de cobertura del grafo cargado.
+class NodoFueraDeRangoError(CoordenadasFueraDeRangoError):
+    """Coordenadas fuera del área de cobertura detectadas durante el snap.
 
-    Aplicación de RN-01 del SRS (rango IV Región) detectada en el borde,
-    antes de invocar :class:`GrafoVial.nodo_mas_cercano`.
+    Subclase de :class:`CoordenadasFueraDeRangoError` (dominio incidente).
+    Se conserva como tipo distinto para que los call-sites del adapter
+    sigan capturando ``NodoFueraDeRangoError`` sin cambios, pero los
+    handlers genéricos del borde (API/CLI) pueden capturar el padre.
+
+    Acepta un mensaje libre porque también se lanza para el caso
+    degenerado "grafo sin nodos", donde ``lat``/``lon`` no aplican; en
+    ese caso ambos quedan como ``NaN``.
     """
+
+    def __init__(
+        self, mensaje: str, *, lat: float = float("nan"), lon: float = float("nan")
+    ) -> None:
+        Exception.__init__(self, mensaje)
+        self.lat = lat
+        self.lon = lon
