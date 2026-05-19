@@ -208,7 +208,7 @@ def generar_fixture() -> dict[str, Any]:
         )
 
     return {
-        "version": "1",
+        "version": "2",
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "bbox": [BBOX_LEFT, BBOX_BOTTOM, BBOX_RIGHT, BBOX_TOP],
         "osrm": {
@@ -219,6 +219,18 @@ def generar_fixture() -> dict[str, Any]:
             "seed": SEED,
             "descartes": descartes,
         },
+        "jitter": {
+            "radio_grados": JITTER_GRADOS,
+            "radio_metros_aprox": round(JITTER_GRADOS * 111_000.0, 1),
+            "distribucion": "uniform",
+            "aplicado_sobre": "destino (incidente); origen sin jitter",
+            "generador": (
+                "random.Random(seed).uniform(-radio_grados, +radio_grados) por "
+                "componente lat y lon, independiente"
+            ),
+            "jitters_por_incidente": JITTERS_POR_INCIDENTE,
+        },
+        "distancia_minima_m": DISTANCIA_MINIMA_M,
         "pares": pares,
     }
 

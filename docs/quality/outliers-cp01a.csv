@@ -1,0 +1,23 @@
+par_id,d_propio_m,d_osrm_m,err_rel,n_aristas,n_giros,pct_via_filtrada,pct_aristas_cortas,causa,notas
+1,0.0,548.8,1.0000,0,0,0.0000,0.0000,snap_endpoints,d_propio=0 m << d_OSRM=549 m (ratio 0.00); snap-to-node colapsó endpoint(s)
+20,349.1,1881.5,0.8145,4,1,0.0000,0.0000,snap_endpoints,d_propio=349 m << d_OSRM=1882 m (ratio 0.19); snap-to-node colapsó endpoint(s)
+4,349.1,1855.8,0.8119,4,1,0.0000,0.0000,snap_endpoints,d_propio=349 m << d_OSRM=1856 m (ratio 0.19); snap-to-node colapsó endpoint(s)
+22,349.1,1854.6,0.8118,4,1,0.0000,0.0000,snap_endpoints,d_propio=349 m << d_OSRM=1855 m (ratio 0.19); snap-to-node colapsó endpoint(s)
+24,349.1,1854.6,0.8118,4,1,0.0000,0.0000,snap_endpoints,d_propio=349 m << d_OSRM=1855 m (ratio 0.19); snap-to-node colapsó endpoint(s)
+57,349.1,1854.6,0.8118,4,1,0.0000,0.0000,snap_endpoints,d_propio=349 m << d_OSRM=1855 m (ratio 0.19); snap-to-node colapsó endpoint(s)
+67,349.1,1854.6,0.8118,4,1,0.0000,0.0000,snap_endpoints,d_propio=349 m << d_OSRM=1855 m (ratio 0.19); snap-to-node colapsó endpoint(s)
+36,438.2,1834.9,0.7612,5,0,0.0000,0.0000,snap_endpoints,d_propio=438 m << d_OSRM=1835 m (ratio 0.24); snap-to-node colapsó endpoint(s)
+43,438.2,1815.1,0.7586,5,0,0.0000,0.0000,snap_endpoints,d_propio=438 m << d_OSRM=1815 m (ratio 0.24); snap-to-node colapsó endpoint(s)
+66,438.2,1815.1,0.7586,5,0,0.0000,0.0000,snap_endpoints,d_propio=438 m << d_OSRM=1815 m (ratio 0.24); snap-to-node colapsó endpoint(s)
+84,1543.7,944.3,0.6348,19,5,0.0000,0.0000,snap_corto,d_OSRM=944 m < 1000 m; snap-to-node domina en rutas cortas
+38,100.8,255.9,0.6059,1,0,0.0000,0.0000,snap_endpoints,d_propio=101 m << d_OSRM=256 m (ratio 0.39); snap-to-node colapsó endpoint(s)
+5,532.9,1116.2,0.5226,4,2,0.5000,0.0000,snap_endpoints,d_propio=533 m << d_OSRM=1116 m (ratio 0.48); snap-to-node colapsó endpoint(s)
+63,2951.6,1985.0,0.4869,18,7,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+65,1901.3,1325.4,0.4345,14,3,0.2143,0.0000,via_filtrada,21% de aristas en vías que OSRM filtra/penaliza (top: living_street=3)
+17,899.7,1542.1,0.4165,9,4,0.4444,0.0000,via_filtrada,44% de aristas en vías que OSRM filtra/penaliza (top: living_street=4)
+32,899.7,1508.3,0.4035,9,4,0.4444,0.0000,via_filtrada,44% de aristas en vías que OSRM filtra/penaliza (top: living_street=4)
+39,265.8,441.4,0.3979,2,1,0.0000,0.0000,snap_corto,d_OSRM=441 m < 1000 m; snap-to-node domina en rutas cortas
+19,822.8,1287.5,0.3609,6,3,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+35,822.8,1280.1,0.3572,6,3,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+46,398.6,608.4,0.3448,3,2,0.0000,0.0000,snap_corto,d_OSRM=608 m < 1000 m; snap-to-node domina en rutas cortas
+21,1521.9,2261.9,0.3271,14,2,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
