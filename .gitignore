@@ -97,6 +97,17 @@ data/graphs/*.graphml
 data/graphs/*.pkl
 data/graphs/*.osm
 !data/graphs/.gitkeep
+# Excepción: el grafo Coquimbo se commitea como fixture reproducible para IT-01
+# (ADR-0010 §3). Regenerable vía `make build-graph`.
+!data/graphs/coquimbo.graphml
+
+# OSRM oracle data (generado por tools/build_osrm_oracle.sh — ~600 MB de PBF +
+# sidecars). El único artefacto committeado es tests/fixtures/osrm_oracle.json.
+data/osrm/*
+!data/osrm/.gitkeep
+
+# Cache de Overpass de OSMnx (generado al descargar grafos)
+cache/
 
 # Logs
 *.log
