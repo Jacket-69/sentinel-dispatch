@@ -284,7 +284,13 @@ class TestNormal:
         assert "T_viaje" in data["costo"]
         assert "penalizacion" in data["costo"]
         assert "total" in data["costo"]
-        assert isinstance(data["ruta"], list)
+        # La ruta debe estar poblada para un despacho exitoso (H3-J-1b)
+        ruta = data["ruta"]
+        assert isinstance(ruta, list)
+        assert len(ruta) >= 2, "La ruta de un despacho exitoso debe tener al menos 2 nodos"
+        # Los IDs de nodo se serializan como strings (ADR-0017 §ruta)
+        assert all(isinstance(n, str) for n in ruta)
+        assert all(int(n) >= 0 for n in ruta), "Cada elemento debe parsear a entero no negativo"
 
     def test_motivo_optimo_serializado_correctamente(
         self,
@@ -436,3 +442,8 @@ class TestReglasNegocio:
         assert data["despacho_suboptimo"] is True
         assert data["unidad_seleccionada"] == {"id": "U02"}
         assert data["eta_segundos"] == pytest.approx(200.0)
+        # RN-02: la ruta de la Básica elegida también se incluye en el JSONL
+        ruta = data["ruta"]
+        assert isinstance(ruta, list)
+        assert len(ruta) >= 2, "El fallback RN-02 también debe tener ruta"
+        assert all(isinstance(n, str) for n in ruta)
