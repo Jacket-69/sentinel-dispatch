@@ -30,6 +30,17 @@ El 2026-05-18 ejecutamos por primera vez el experimento real:
 
 El criterio original (duration ≤ ±5% en ≥ 95/100) **no es alcanzable** con la arquitectura del A* simple definida en el SRS sec. 2.6-B.
 
+### Cómo se generan los pares (jitter)
+
+El generador `tools/generate_osrm_fixture.py` produce los 100 pares así:
+
+- **Orígenes**: las 10 bases SAMU del dataset (`data/dataset/unidades.json`), sin jitter.
+- **Destinos**: los 12 incidentes del dataset (`data/dataset/incidentes.json`), cada uno expandido con `JITTERS_POR_INCIDENTE = 10` perturbaciones independientes.
+- **Distribución del jitter**: `uniform` sobre cada componente (lat, lon) por separado, radio `JITTER_GRADOS = 0.0013°` (≈ 144 m a latitud de Coquimbo).
+- **Semilla**: `random.Random(SEED=2026).uniform(-r, +r)`, determinista — la regeneración produce bit-exactos los mismos candidatos.
+- **Selección**: producto cartesiano `bases × incidentes × jitters` = 1200 candidatos, shuffled con la misma semilla; se itera hasta juntar 100 pares válidos contra OSRM, descartando los que devuelven error de red (`red`), sin ruta (`sin_ruta`) o ruta `< DISTANCIA_MINIMA_M = 200 m` (`distancia_corta`).
+- **Metadatos**: a partir del fixture v2 (`metadata_added_at: 2026-05-19`) el JSON committea explícitamente los campos `jitter.{radio_grados, distribucion, aplicado_sobre, generador, jitters_por_incidente}` y `distancia_minima_m` para que un revisor pueda reconstruir el experimento sin leer el script.
+
 ## Diagnóstico de la divergencia
 
 El A* del proyecto y OSRM ejecutan algoritmos distintos sobre fuentes OSM parecidas pero no idénticas. Las cinco fuentes principales de divergencia identificadas, ordenadas por magnitud:
@@ -41,6 +52,23 @@ El A* del proyecto y OSRM ejecutan algoritmos distintos sobre fuentes OSM pareci
 5. **Filtrado de vías** — OSRM en `car.lua` filtra ciertas vías (`service` privadas, `living_street` con tags específicos). El adapter del proyecto las admite todas. Esto afecta especialmente las rutas que cruzan zonas residenciales con calles peatonalizadas o privadas.
 
 Estos factores son **arquitectónicos**, no bugs. Modelarlos en el A* simple requiere reescribir el algoritmo como *edge-expanded graph* (turn-based routing), lo que excede el alcance de H2 y el cronograma del ramo GCS.
+
+### Descomposición empírica de los 22 outliers (2026-05-19)
+
+Para anticipar la defensa GCS, los 22 pares con `|Δ_distance|/d_OSRM > 0.30` se procesaron con `tools/analyze_outliers.py` (clasificador heurístico que recorre la ruta del A*, mide longitud / giros / tipos de vía y atribuye una causa probable entre las cinco listadas arriba).
+
+| Causa probable | Conteo | % de outliers | Familia |
+|---|---:|---:|---|
+| `snap_endpoints` (ratio `d_propio / d_OSRM < 0.55`) | 12 | 55% | snap-to-node (factor 3) |
+| `snap_corto` (d_OSRM < 1 km) | 3 | 14% | snap-to-node (factor 3) |
+| `via_filtrada` (>20% de aristas `living_street`/`service`/…) | 3 | 14% | filtrado `car.lua` (factor 5) |
+| `residual` (no atribuible con las heurísticas actuales) | 4 | 18% | combinado snap + simplify + speed factor |
+
+**Lectura empírica**: **68%** (15/22) de los outliers se atribuyen a snap-to-node. **14%** se explica por filtrado de vías de OSRM. Solo **18%** queda como residuo combinado; ese residuo es consistente con la divergencia de speed factor y simplify mencionadas en el diagnóstico cualitativo, sin que ninguna heurística simple los aísle por separado.
+
+Conclusión: la divergencia observada no es ruido aleatorio — está dominada por una decisión específica del adapter (snap-to-node, ADR-0010 §2). Eliminar esa decisión (migrar a snap-to-edge con interpolación, listado como pto 3 de "Decisión a futuro" más abajo) recuperaría empíricamente la mayoría de los outliers. El experimento confirma esa proyección con datos, no con conjetura.
+
+Tabla detallada por par (incluye `d_propio`, `d_OSRM`, `err_rel`, `n_giros`, `%vía filtrada`, `%aristas <5 m`, nota de la heurística): [`docs/quality/outliers-cp01a.md`](../../quality/outliers-cp01a.md). CSV procesable: [`docs/quality/outliers-cp01a.csv`](../../quality/outliers-cp01a.csv). Regenerar con `uv run --project core-python python tools/analyze_outliers.py`.
 
 ## Decisión
 
@@ -90,11 +118,23 @@ El ±30% no es un número arbitrario: proviene de leer la distribución empíric
 - El criterio reformulado es más laxo. Mitigación: explicado con datos y referenciado a literatura (NFPA 1710 tolera errores de minutos en ETA, no segundos).
 - Si en la defensa exigen ±5% original, hay que invocar la sección "Decisión a futuro" o renegociar el alcance.
 
+## Verdad y limitaciones
+
+Esta sección registra explícitamente las debilidades del experimento y de la decisión, anticipándose a las preguntas críticas que la defensa GCS puede plantear.
+
+1. **El criterio CP-01 original del SRS no fue validado empíricamente antes de redactarse.** El ±5% en duration contra OSRM se escribió en SRS sec. 2.13 sin correr el experimento ni revisar literatura específica sobre divergencia A*↔OSRM. El error no fue de la implementación del A*, fue de la especificación del CP — exactamente la clase de error que la asignatura evalúa. Se documenta aquí porque ocultarlo y luego ser preguntado es peor que reconocerlo y mostrar la corrección (este ADR es la corrección).
+2. **El clasificador de causas usa heurísticas, no demostración formal.** `tools/analyze_outliers.py` asigna una causa por par según umbrales fijos (`ratio < 0.55`, `>20% vía filtrada`, etc.). Es plausible pero no probado: un par podría caer bajo dos causas simultáneamente y el script reporta la primera por prioridad. La interpretación del 68% como "snap-to-node domina" es defendible pero no es una *prueba*.
+3. **La distribución del jitter sesga la muestra hacia rutas urbanas cortas.** El radio de 0.0013° (≈144 m) mantiene los destinos en la zona conurbada La Serena-Coquimbo, lo que es realista para SAMU, pero significa que el fixture no tiene rutas largas inter-comunales. El 23% de los outliers son rutas <1 km, en parte porque la población muestral tiene varias rutas cortas.
+4. **Comparación contra una sola versión de OSRM.** El experimento usa OSRM 5.27 con `car.lua` interno. Cambios futuros del perfil OSRM o regeneraciones del fixture sobre otra versión podrían mover los conteos sin invalidar la decisión.
+5. **CP-01a se cumple por margen estrecho.** 78/100 contra mínimo 75/100 — margen de 3 pares. Si la próxima regeneración del fixture cae a 74/100, el test rompe sin que el algoritmo haya cambiado. Mitigación: el fixture está committeado al repo (`tests/fixtures/osrm_oracle.json`) precisamente para que la regeneración sea explícita y revisable, no automática.
+6. **Las cinco fuentes de divergencia no se aislan experimentalmente.** Para aislarlas habría que re-correr OSRM con perfiles modificados (`turn_penalty=0`, `speed_reduction=1.0`, etc.) y comparar fixture-vs-fixture. Esa validación es "Decisión a futuro" pto 1; sin ella, las atribuciones del clasificador son consistentes con la hipótesis pero no la prueban.
+
 ## Datos del experimento
 
-- Fixture: [tests/fixtures/osrm_oracle.json](../../../core-python/tests/fixtures/osrm_oracle.json) — 100 pares generados con `tools/generate_osrm_fixture.py` el 2026-05-18 contra OSRM 5.27 docker.
+- Fixture: [tests/fixtures/osrm_oracle.json](../../../core-python/tests/fixtures/osrm_oracle.json) — 100 pares generados con `tools/generate_osrm_fixture.py` el 2026-05-18 contra OSRM 5.27 docker. Metadata de jitter agregada al fixture v2 el 2026-05-19.
 - Grafo de referencia: `data/graphs/coquimbo.graphml` (16 679 nodos, 42 508 aristas, bbox `(-71.45, -30.10, -71.15, -29.85)`).
 - Test que evalúa CP-01a/b: [tests/integration/test_routing_vs_osrm.py](../../../core-python/tests/integration/test_routing_vs_osrm.py).
+- Análisis de outliers: [tools/analyze_outliers.py](../../../tools/analyze_outliers.py) genera [`docs/quality/outliers-cp01a.md`](../../quality/outliers-cp01a.md) y `outliers-cp01a.csv`.
 - Script de reproducción: `tools/build_osrm_oracle.sh && uv run python tools/generate_osrm_fixture.py`.
 
 ## Referencias

@@ -1,6 +1,7 @@
 {
-  "version": "1",
+  "version": "2",
   "generated_at": "2026-05-18T21:30:48-0400",
+  "metadata_added_at": "2026-05-19",
   "bbox": [
     -71.45,
     -30.1,
@@ -15,6 +16,15 @@
     "seed": 2026,
     "descartes": 783
   },
+  "jitter": {
+    "radio_grados": 0.0013,
+    "radio_metros_aprox": 144.3,
+    "distribucion": "uniform",
+    "aplicado_sobre": "destino (incidente); origen sin jitter",
+    "generador": "random.Random(seed).uniform(-radio_grados, +radio_grados) por componente lat y lon, independiente",
+    "jitters_por_incidente": 10
+  },
+  "distancia_minima_m": 200.0,
   "pares": [
     {
       "id": 0,
