@@ -7,6 +7,16 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H3 fase 1: tipos del dominio dispatch + función de costo (RF-04, 2026-05-19)
+- Nuevo paquete `domain/dispatch/` con tipos del dominio: enums `TipoUnidad` (Avanzada / Básica) y `EstadoUnidad` (Disponible / EnRuta / EnEscena / Taller); dataclasses frozen `Unidad`, `Incidente` y value object `CostoDespacho` con desglose para auditoría (RF-06 / log JSONL).
+- [`domain/dispatch/funcion_costo.py`](core-python/src/sentinel_dispatch/domain/dispatch/funcion_costo.py): implementación de la fórmula del SRS sec. 2.6-C — `Costo(u, i) = α·T_viaje + β·Penalización_Idoneidad` con `α=1.0`, `β=600s`. Tabla `TABLA_PENALIZACION_IDONEIDAD` exhaustiva (10 entradas: Echo/Delta+Básica → `math.inf`, Charlie+Básica → 1.0, resto → 0.0). Excepciones de dominio `UnidadInelegibleError` (RN-04 — Taller excluido) y `TViajeInvalidoError` (NaN o negativo).
+- [ADR-0014](docs/architecture/decisions/0014-funcion-costo-dispatch.md) documenta la fórmula, la separación del dominio respecto al routing (`t_viaje_s` se recibe como input, no se calcula adentro) y la separación entre el cálculo de costo (dominio) y el fallback RN-02 (application, ADR-0015 pendiente).
+- Tests unitarios del módulo en `tests/unit/domain/dispatch/test_funcion_costo.py` — **38 tests verdes** distribuidos en Normal (6) + Borde (6) + Error (6) + Regla de Negocio (8) + tabla parametrizada (14). Cubre CP-04 textual ("Charlie + Básica cercana vs Avanzada lejana"), CP-05 textual ("Echo + Básica → ∞" con preservación de `t_viaje_s`), setup de CP-11 (empate de costo) y determinismo (100 ejecuciones idénticas).
+
+### Changed — H3 fase 1
+- `docs/quality/trazabilidad.md`: RF-04 marcado ✅ fase 1 (costo); RN-04 ✅ vía excepción de dominio; entries enriquecidas con paths a `funcion_costo.py` y `ADR-0014`.
+- `core-python/pyproject.toml`: agregada lista `[tool.ruff.lint] allowed-confusables = ["α", "β", "×", "→", "·", "−"]` para tolerar fórmulas matemáticas del SRS en docstrings sin sacrificar legibilidad académica.
+
 ### Added — Blindaje defensa Segunda Evaluación (ADR-0011 + ADR-0013, 2026-05-19)
 - `tools/analyze_outliers.py` clasifica los 22 outliers del fixture OSRM por causa probable (`snap_endpoints`, `snap_corto`, `via_filtrada`, `turn_penalty`, `simplify`, `residual`) con umbrales heurísticos documentados en el módulo. Resultado: 68% snap-to-node + 14% filtrado `car.lua` + 18% residual.
 - `docs/quality/outliers-cp01a.md` y `.csv` con la tabla detallada por par (id, d_propio, d_OSRM, err_rel, n_giros, %vía filtrada, causa). Regenerable con `uv run --project core-python python tools/analyze_outliers.py`.
