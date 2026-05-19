@@ -116,6 +116,8 @@ Suite `core-python/tests/unit/domain/routing/` con **20 tests verdes** distribui
 
 Validación IT-01 con OSRM oracle (CP-01a/b, ADR-0011): [test_routing_vs_osrm.py](../../core-python/tests/integration/test_routing_vs_osrm.py) — assert ≥ 75/100 pares con `|Δ_distance|/d_OSRM ≤ 0.30` (resultado: 78/100). Reporta también la distribución de divergencia en `duration`.
 
+**Blindaje defensa (2026-05-19)** — descomposición empírica de los 22 outliers vía [tools/analyze_outliers.py](../../tools/analyze_outliers.py): 55% `snap_endpoints` + 14% `snap_corto` (68% snap-to-node) + 14% `via_filtrada` (filtrado `car.lua`) + 18% `residual`. Tabla detallada en [outliers-cp01a.md](outliers-cp01a.md) y CSV en [outliers-cp01a.csv](outliers-cp01a.csv). Documentación del jitter (`radio=0.0013°`, distribución uniforme, seed=2026, generador `random.Random(seed).uniform`) ahora vive explícitamente en el header del fixture (v2). [ADR-0013](../architecture/decisions/0013-cp01c-criterio-calibrado.md) fija el criterio post-calibración esperable: **CP-01c — duration ±15% en ≥ 85/100** tras aplicar `factor_calibracion=0.85` + turn penalties simples en H4.
+
 ### 5.4 Módulo `domain/incidente/` — ✅ cumple (RF-01 / RN-01)
 
 Suite `core-python/tests/unit/domain/incidente/test_validacion_coordenadas.py` con **13 tests verdes**, complementada por **7 tests** de integración del endpoint en `core-python/tests/integration/test_api_validacion_coordenadas.py` (CP-09 a nivel HTTP).
