@@ -454,3 +454,67 @@ class TestReglaDeNegocio:
         assert resultado.elegida.id == "U01"
         candidatos_ids = [c.unidad.id for c in resultado.candidatos]
         assert "U05" not in candidatos_ids
+
+
+# ---------------------------------------------------------------------------
+# Ruta de nodos (H3-J-1b)
+# ---------------------------------------------------------------------------
+
+
+class TestRutaNodos:
+    def test_normal_despacho_exitoso_ruta_nodos_poblada(
+        self, t_viajes_fake: dict[str, float]
+    ) -> None:
+        """Normal: despacho exitoso → ruta_nodos tiene ≥2 nodos, primero=base elegida, último=incidente.
+
+        El fake_a_estrella retorna ``[origen, destino]`` donde origen es el nodo
+        snap de la base de la unidad y destino es el nodo snap del incidente (99).
+        """
+        t_viajes_fake["U01"] = 120.0
+        nodo_base_u01 = 1
+        nodo_incidente = 99
+        flota = [_u("U01")]
+        incidente = _i("I-rn-01", CategoriaMPDS.BRAVO)
+        grafo = FakeGrafo(
+            nodos_por_unidad={"U01": nodo_base_u01},
+            nodo_incidente=nodo_incidente,
+        )
+
+        resultado = despachar(incidente, flota, grafo)
+
+        assert resultado.motivo is MotivoDespacho.OPTIMO
+        assert resultado.elegida is not None
+        assert resultado.elegida.id == "U01"
+        assert len(resultado.ruta_nodos) >= 2
+        # El primer nodo debe ser el snap de la base de U01
+        assert resultado.ruta_nodos[0] == nodo_base_u01
+        # El último nodo debe ser el snap del incidente
+        assert resultado.ruta_nodos[-1] == nodo_incidente
+
+    def test_rn02_fallback_basica_ruta_nodos_poblada(self, t_viajes_fake: dict[str, float]) -> None:
+        """RN-02: fallback con única Básica para Echo → despacho_suboptimo=True y ruta_nodos no vacía.
+
+        La ruta de la unidad elegida (Básica) debe propagarse aunque el despacho
+        sea sub-óptimo por RN-02.
+        """
+        t_viajes_fake["U07"] = 240.0
+        nodo_base_u07 = 7
+        nodo_incidente = 99
+        flota = [_u("U07", tipo=TipoUnidad.BASICA)]
+        incidente = _i("I-rn-02", CategoriaMPDS.ECHO)
+        grafo = FakeGrafo(
+            nodos_por_unidad={"U07": nodo_base_u07},
+            nodo_incidente=nodo_incidente,
+        )
+
+        resultado = despachar(incidente, flota, grafo)
+
+        assert resultado.motivo is MotivoDespacho.SUBOPTIMO_RN02
+        assert resultado.despacho_suboptimo is True
+        assert resultado.elegida is not None
+        assert resultado.elegida.id == "U07"
+        # La ruta de la Básica elegida debe estar presente (no vacía)
+        assert resultado.ruta_nodos != ()
+        assert len(resultado.ruta_nodos) >= 2
+        assert resultado.ruta_nodos[0] == nodo_base_u07
+        assert resultado.ruta_nodos[-1] == nodo_incidente
