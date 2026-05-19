@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key id="d0" for="node" attr.name="y" attr.type="string" />
+  <key id="d1" for="node" attr.name="x" attr.type="string" />
+  <key id="d2" for="edge" attr.name="length" attr.type="string" />
+  <key id="d3" for="edge" attr.name="speed_kph" attr.type="string" />
+  <graph edgedefault="directed">
+    <!-- Nodo A: lat=-29.9077, lon=-71.2535 (cercano a Hospital San Juan de Dios, La Serena) -->
+    <node id="100001">
+      <data key="d0">-29.9077</data>
+      <data key="d1">-71.2535</data>
+    </node>
+    <!-- Nodo B: lat=-29.9100, lon=-71.2600 -->
+    <node id="100002">
+      <data key="d0">-29.9100</data>
+      <data key="d1">-71.2600</data>
+    </node>
+    <!-- Nodo C: lat=-29.9150, lon=-71.2550 -->
+    <node id="100003">
+      <data key="d0">-29.9150</data>
+      <data key="d1">-71.2550</data>
+    </node>
+    <!-- Nodo D: aislado (sin aristas salientes) lat=-29.9200, lon=-71.2700 -->
+    <node id="100004">
+      <data key="d0">-29.9200</data>
+      <data key="d1">-71.2700</data>
+    </node>
+    <!-- Arista A->B principal: longitud 750m, speed 50 km/h -->
+    <edge source="100001" target="100002" id="e1">
+      <data key="d2">750.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+    <!-- Arista A->B duplicada (mismos nodos, mayor longitud): debe ser descartada por deduplicacion -->
+    <edge source="100001" target="100002" id="e2">
+      <data key="d2">900.0</data>
+      <data key="d3">60.0</data>
+    </edge>
+    <!-- Arista B->C: longitud 600m, speed 40 km/h -->
+    <edge source="100002" target="100003" id="e3">
+      <data key="d2">600.0</data>
+      <data key="d3">40.0</data>
+    </edge>
+    <!-- Arista C->A sin speed_kph: debe usar FALLBACK 30 km/h -->
+    <edge source="100003" target="100001" id="e4">
+      <data key="d2">1000.0</data>
+    </edge>
+  </graph>
+</graphml>
