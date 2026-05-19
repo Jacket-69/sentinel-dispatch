@@ -80,9 +80,7 @@ class TestApiValidacionError:
 
     @pytest.mark.asyncio
     async def test_lat_no_numerica_devuelve_422(self) -> None:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(_ENDPOINT, json={"lat": "norte", "lon": -71.0})
         assert response.status_code == 422
 
