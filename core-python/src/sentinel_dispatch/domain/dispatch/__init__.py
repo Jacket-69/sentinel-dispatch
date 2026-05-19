@@ -20,6 +20,17 @@ from sentinel_dispatch.domain.dispatch.funcion_costo import (
     costo,
     penalizacion_idoneidad,
 )
+from sentinel_dispatch.domain.dispatch.redespacho import (
+    UMBRAL_PROGRESO_MAXIMO,
+    PropuestaRedespacho,
+    evaluar_redespacho,
+)
+from sentinel_dispatch.domain.dispatch.seleccion import (
+    CandidatoDespacho,
+    ResultadoSeleccion,
+    hay_cobertura_alternativa,
+    seleccionar_unidad,
+)
 from sentinel_dispatch.domain.dispatch.tipos import (
     CostoDespacho,
     EstadoUnidad,
@@ -32,13 +43,20 @@ __all__ = [
     "ALPHA",
     "BETA_S",
     "TABLA_PENALIZACION_IDONEIDAD",
+    "UMBRAL_PROGRESO_MAXIMO",
+    "CandidatoDespacho",
     "CostoDespacho",
     "EstadoUnidad",
     "Incidente",
+    "PropuestaRedespacho",
+    "ResultadoSeleccion",
     "TViajeInvalidoError",
     "TipoUnidad",
     "Unidad",
     "UnidadInelegibleError",
     "costo",
+    "evaluar_redespacho",
+    "hay_cobertura_alternativa",
     "penalizacion_idoneidad",
+    "seleccionar_unidad",
 ]
