@@ -81,8 +81,11 @@ def _distancia_de_ruta(adapter: OsmnxGrafoVial, ruta: list[int]) -> float:
     for i in range(len(ruta) - 1):
         origen, destino = ruta[i], ruta[i + 1]
         longitudes = [a.longitud_m for a in adapter.vecinos(origen) if a.destino == destino]
-        if longitudes:
-            total += min(longitudes)
+        assert longitudes, (
+            f"A* devolvió una ruta inconsistente con el adapter: "
+            f"sin arista directa entre nodos {origen} → {destino}"
+        )
+        total += min(longitudes)
     return total
 
 
