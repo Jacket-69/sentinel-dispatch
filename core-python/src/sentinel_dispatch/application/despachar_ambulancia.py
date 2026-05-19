@@ -84,22 +84,31 @@ def _calcular_tiempos_viaje(
     grafo: GrafoVial,
     factor_hora: float,
     factor_sirena: float,
-) -> dict[str, float]:
-    """Calcula ``T_viaje`` desde la base de cada unidad hacia el incidente.
+) -> tuple[dict[str, float], dict[str, list[int]]]:
+    """Calcula ``T_viaje`` y ruta de nodos desde la base de cada unidad hacia el incidente.
 
     Snap del incidente y de cada base. Las unidades en TALLER se omiten
     silenciosamente (RN-04). Si A* lanza :exc:`NoRutaDisponibleError`,
-    el tiempo se registra como ``math.inf`` (semántica "sin ruta" del
-    dominio dispatch).
+    el tiempo se registra como ``math.inf`` y la ruta queda ausente del
+    dict ``rutas`` (semántica "sin ruta" del dominio dispatch). Esas
+    unidades nunca son elegidas como ganadoras, por lo que la ausencia
+    de ruta en ``rutas`` es segura.
+
+    Returns:
+        Tupla ``(tiempos, rutas)`` donde ``tiempos`` es un mapping
+        ``unidad.id -> T_viaje_s`` y ``rutas`` es un mapping
+        ``unidad.id -> lista de nodos`` para las unidades con ruta
+        disponible.
     """
     nodo_incidente = grafo.nodo_mas_cercano(incidente.lat, incidente.lon)
     tiempos: dict[str, float] = {}
+    rutas: dict[str, list[int]] = {}
     for unidad in flota:
         if unidad.estado is EstadoUnidad.TALLER:
             continue
         try:
             nodo_base = grafo.nodo_mas_cercano(unidad.base_lat, unidad.base_lon)
-            eta_s, _ruta = a_estrella(
+            eta_s, ruta_nodos = a_estrella(
                 grafo,
                 nodo_base,
                 nodo_incidente,
@@ -107,9 +116,10 @@ def _calcular_tiempos_viaje(
                 factor_sirena=factor_sirena,
             )
             tiempos[unidad.id] = eta_s
+            rutas[unidad.id] = ruta_nodos
         except NoRutaDisponibleError:
             tiempos[unidad.id] = math.inf
-    return tiempos
+    return tiempos, rutas
 
 
 def _fallback_rn02_basica(
@@ -180,7 +190,9 @@ def despachar(
         aplica, el estado de saturación con candidatas a re-dirección.
     """
     flota_lista = list(flota)
-    tiempos = _calcular_tiempos_viaje(flota_lista, incidente, grafo, factor_hora, factor_sirena)
+    tiempos, rutas = _calcular_tiempos_viaje(
+        flota_lista, incidente, grafo, factor_hora, factor_sirena
+    )
 
     disponibles = [u for u in flota_lista if u.estado is EstadoUnidad.DISPONIBLE]
     seleccion = seleccionar_unidad(disponibles, incidente, tiempos)
@@ -199,6 +211,7 @@ def despachar(
             despacho_suboptimo=False,
             candidatos=seleccion.candidatos,
             saturacion=None,
+            ruta_nodos=tuple(rutas.get(seleccion.elegida.id, [])),
         )
 
     if disponibles:
@@ -219,6 +232,7 @@ def despachar(
                 despacho_suboptimo=True,
                 candidatos=seleccion.candidatos,
                 saturacion=None,
+                ruta_nodos=tuple(rutas.get(elegida.id, [])),
             )
 
     estado_sat: EstadoSaturacion = detectar_saturacion(flota_lista, progreso_por_unidad)
@@ -230,4 +244,5 @@ def despachar(
         despacho_suboptimo=False,
         candidatos=seleccion.candidatos,
         saturacion=estado_sat,
+        ruta_nodos=(),
     )
