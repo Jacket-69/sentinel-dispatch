@@ -38,7 +38,7 @@ La matriz cubre los **doce Requisitos Funcionales** (RF-01..RF-12), las **diez R
 | **RF-07** Visualización de la ruta A* en mapa | `interfaces/` (notebook Leaflet, F5 diferido) | _Notebook de visualización (pendiente, bonus)_ | Verificación visual durante FTR-01 | Ruta A* renderizada sobre tiles OSM con marcadores de incidente y unidad asignada | ⛔ post-H5 bonus |
 | **RF-08** Re-despacho automático con confirmación humana | `domain/dispatch/` → [`redespacho.py`](../../core-python/src/sentinel_dispatch/domain/dispatch/redespacho.py) | `evaluar_redespacho(unidad_actual, incidente_actual, incidente_nuevo, progreso_pct, flota, tiempos_viaje)` → `PropuestaRedespacho(procede, razon, unidad_de_reemplazo, ...)` | [CP-06](../SRS.md#213-casos-de-prueba) progreso 40% · [CP-07](../SRS.md#213-casos-de-prueba) progreso 60% | Tres condiciones RN-06 evaluadas en orden: criticidad creciente → progreso ≤ 50% → cobertura alternativa. Veredicto humanlegible en `razon`. Nunca ejecuta — solo propone | ✅ H3 fase 2 |
 | **RF-09** Panel de unidades en tiempo real | `interfaces/api` + UI HTMX (F5 diferido) | _Endpoint `/unidades/estado` (pendiente)_ | Verificación funcional durante FTR-02 | Estado actualizado refleja transiciones Disponible↔EnRuta↔EnEscena↔Taller con coordenadas | ⛔ post-H5 (ADR-0004 deferred) |
-| **RF-10** Detección de saturación y candidatas a re-dirección | `application/` → `saturacion.py` | `detectar_saturacion(flota)` (pendiente) | [CP-10](../SRS.md#213-casos-de-prueba) flota saturada | Sistema reporta saturación; lista candidatas EnRuta ordenadas por progreso ascendente | 🟡 H3 |
+| **RF-10** Detección de saturación y candidatas a re-dirección | `application/` → [`saturacion.py`](../../core-python/src/sentinel_dispatch/application/saturacion.py) | `detectar_saturacion(flota, progreso_por_unidad)` → `EstadoSaturacion(saturada, candidatas_redireccion)`; candidatas EnRuta ordenadas por `(progreso_pct asc, unidad.id lex asc)`; default conservador `progreso=0.0` para EnRuta sin progreso provisto | [CP-10](../SRS.md#213-casos-de-prueba) flota saturada | Sistema reporta saturación cuando ninguna unidad está en `DISPONIBLE`; lista candidatas EnRuta para re-dirección manual del operador | ✅ H3 fase 3 |
 | **RF-11** Exportación de logs CSV/JSON | `adapters/exportador.py` | `exportar(logs, formato={csv,json})` (pendiente) | _Test funcional (pendiente, post-H4)_ | Logs exportados conservan campos del esquema y son legibles por herramientas estándar | 🟡 H4 |
 | **RF-12** Modo simulación sobre flota ficticia | `application/` → `simulacion.py` | `simular(flota_ficticia, incidente)` (pendiente) | _Test funcional (pendiente)_ | Cálculo completo se ejecuta sin afectar el estado operativo real; resultado claramente marcado como simulación | 🟡 H4 |
 
@@ -47,7 +47,7 @@ La matriz cubre los **doce Requisitos Funcionales** (RF-01..RF-12), las **diez R
 | Regla | Módulo asociado | Función / invariante | Caso de prueba | Resultado esperado | Estado |
 |---|---|---|---|---|---|
 | **RN-01** Validación de rango IV Región | `domain/incidente/validacion.py` | `validar_coordenadas_iv_region(lat, lon)` lanza `CoordenadasFueraDeRangoError` (ValueError) con mensaje normativo `MENSAJE_FUERA_DE_RANGO` (ADR-0012) | CP-09 | Rechazo con mensaje "Coordenadas fuera del área de cobertura (IV Región)." antes de cualquier cálculo | ✅ |
-| **RN-02** Saturación crítica → flag `despacho_suboptimo` (no bloqueo) | `domain/dispatch/` | `marcar_suboptimo(unidad, incidente)` (pendiente) | CP-05 | Echo/Delta con única Básica disponible: despacho ejecutado con `despacho_suboptimo: true` en el log | 🟡 H3 |
+| **RN-02** Saturación crítica → flag `despacho_suboptimo` (no bloqueo) | `application/despachar_ambulancia.py::_fallback_rn02_basica` | Fallback explícito en orquestador: si única Disponible es Básica para Echo/Delta, elige Básica de menor `T_viaje` y marca `despacho_suboptimo=True` + `motivo=SUBOPTIMO_RN02`. Decisión documentada en [ADR-0015](../architecture/decisions/0015-fallback-rn02-suboptimo.md) | CP-05 (con fallback) | Echo/Delta + única Básica: despacho ejecutado, `costo_elegida.es_infinito=True` pero `t_viaje_s` preservado para auditoría; warning emitido a logging | ✅ H3 fase 3 |
 | **RN-03** Log inmutable | `adapters/log_jsonl.py` | Append-only JSONL (ADR-0007) | CP-08 | Edición rechazada; entrada de auditoría adicional generada | 🟡 H4 |
 | **RN-04** Unidades en Taller excluidas | `domain/dispatch/funcion_costo.py` + `application/` | `costo()` lanza `UnidadInelegibleError` si `unidad.estado is EstadoUnidad.TALLER`; el filtrado preventivo en application/ llega en PR siguiente | _RN cubierta en `test_funcion_costo.py::TestCostoError::test_unidad_taller_lanza`_ | Unidad en `Taller` no entra al cálculo bajo ninguna circunstancia; defensa ruidosa si el caller no filtra | ✅ H3 fase 1 (excepción de dominio) |
 | **RN-05** Rendimiento ≤ 1 s para 50 unidades | Pipeline completo (`application/`) | Métrica end-to-end | CP-12 | `triaje + A*×50 + argmin ≤ 1000 ms` en el servidor de prueba | 🟡 H4 |
@@ -145,9 +145,21 @@ Suite `core-python/tests/unit/domain/dispatch/` con **67 tests verdes** distribu
 
 Decisiones arquitectónicas: [ADR-0014](../architecture/decisions/0014-funcion-costo-dispatch.md) documenta la fórmula (`α=1.0`, `β=600s`), la tabla exhaustiva (10 entradas), la separación dominio/routing (T_viaje como input), y la separación dominio/fallback RN-02 (delegada a [ADR-0015] pendiente en PR #10).
 
-### 5.6 Módulos pendientes — `application/` + RN-02 fallback
+### 5.6 Módulo `application/` — ✅ H3 fase 3 (cierra el hito)
 
-Falta el orquestador `application/despachar_ambulancia.py` que combina triaje → routing → dispatch (selección + redespacho) + persistencia JSONL + política RN-02 (despacho_suboptimo cuando única Disponible es Básica para Echo/Delta). ADR-0015 cubrirá esa decisión. También queda `application/saturacion.py` (RN-08, CP-10) — diferido a PR #10 para mantenerlo junto con el resto de la lógica de flota.
+Capa de orquestación que combina las piezas de dominio (`triaje`, `routing`, `dispatch`) en el caso de uso end-to-end. Cubre RF-10 (saturación), RN-02 (fallback `despacho_suboptimo`), RN-08 (detección de saturación) y el flujo completo del SRS sec. 2.5.
+
+**Componentes:**
+
+- [`application/despachar_ambulancia.py`](../../core-python/src/sentinel_dispatch/application/despachar_ambulancia.py) — `despachar(incidente, flota, grafo, factor_hora, factor_sirena, progreso_por_unidad)` orquesta snap + A* + selección + fallback + saturación. Retorna `ResultadoDespacho` con uno de cuatro `motivo`: `OPTIMO`, `PENALIZADO`, `SUBOPTIMO_RN02`, `SATURACION`. La política de fallback RN-02 vive en la función auxiliar `_fallback_rn02_basica`.
+- [`application/saturacion.py`](../../core-python/src/sentinel_dispatch/application/saturacion.py) — `detectar_saturacion(flota, progreso_por_unidad)` reporta saturación de capacidad (RN-08) y lista candidatas EnRuta ordenadas por progreso ascendente (CP-10).
+- [`application/tipos.py`](../../core-python/src/sentinel_dispatch/application/tipos.py) — value objects inmutables (`ResultadoDespacho`, `EstadoSaturacion`, `CandidataRedireccion`, `MotivoDespacho`).
+
+Decisión arquitectónica documentada en [ADR-0015](../architecture/decisions/0015-fallback-rn02-suboptimo.md): la política RN-02 vive en application porque el dominio (`funcion_costo.py`) modela la idoneidad médica, no la política operativa de qué hacer cuando la idoneidad ideal no es alcanzable. Cuatro caminos posibles del orquestador resumidos en la tabla del ADR.
+
+### 5.7 Módulos pendientes — H4 (log JSONL, exportador, validación dual)
+
+`adapters/log_jsonl.py` (RF-06, RN-03), `adapters/exportador.py` (RF-11), `application/simulacion.py` (RF-12) llegan en H4. RT-01..04 (validación dual Java↔Python) también está en H4.
 
 ## 6. Cómo regenerar / reproducir esta matriz
 
