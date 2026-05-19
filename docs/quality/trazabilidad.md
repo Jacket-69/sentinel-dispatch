@@ -31,7 +31,7 @@ La matriz cubre los **doce Requisitos Funcionales** (RF-01..RF-12), las **diez R
 |---|---|---|---|---|---|
 | **RF-01** Validación de coordenadas IV Región en tiempo real | `interfaces/api` + `interfaces/cli` | _Validador de rango (pendiente)_ — ver [SRS sec. 2.7 RN-01](../SRS.md#27-reglas-de-negocio) | [CP-09](../SRS.md#213-casos-de-prueba) | Coordenadas fuera de `lat ∈ [−30.5, −29.5] ∧ lon ∈ [−71.7, −70.5]` rechazadas antes de A*; sin log de despacho generado | 🟡 H1 |
 | **RF-02** Árbol de triaje MPDS-subset (Alpha..Echo) | `domain/triaje/` → [`arbol.py`](../../core-python/src/sentinel_dispatch/domain/triaje/arbol.py), [`tipos.py`](../../core-python/src/sentinel_dispatch/domain/triaje/tipos.py) | `clasificar_mpds(respuesta)` aplica las 9 reglas del SRS sec. 2.6-A en orden estricto | `test_regla_1_*` .. `test_regla_9_*` (9 tests) + `test_clasificacion_dataset[I-01..I-12]` (12 tests) | Cada respuesta válida produce la categoría MPDS esperada por la regla disparada; 12/12 incidentes del dataset clasificados correctamente | ✅ |
-| **RF-03** Grafo OSM + ruteo A* con pesos calibrados | `domain/routing/` + `adapters/grafo_osmnx.py` | `a_estrella(grafo, origen, destino, factor_hora, factor_sirena)` (pendiente) | [CP-01](../SRS.md#213-casos-de-prueba) (A* vs OSRM ±5%) · CP-02 (factor_hora) · CP-03 (factor_sirena) | ETA dentro de tolerancia ±5% frente al oracle OSRM en 95% de 100 rutas; relación de ETAs consistente con factor de tráfico | 🟡 H2 |
+| **RF-03** Grafo OSM + ruteo A* con pesos calibrados | `domain/routing/` + `adapters/grafo_osmnx.py` | `a_estrella(grafo, origen, destino, factor_hora, factor_sirena)` ([a_estrella.py](../../core-python/src/sentinel_dispatch/domain/routing/a_estrella.py)) | [CP-01a](../SRS.md#213-casos-de-prueba) (paridad de distancia A* vs OSRM ±30%, ADR-0011) · CP-02 (factor_hora) · CP-03 (factor_sirena) | A* propio recorre rutas con `\|Δ_distance\|/d_OSRM ≤ 0.30` en ≥ 75/100 pares del fixture OSRM (78/100 actual); divergencia en duration reportada vía log | ✅ H2 (CP-01a/b vía [test_routing_vs_osrm.py](../../core-python/tests/integration/test_routing_vs_osrm.py)) |
 | **RF-04** Función de costo multiobjetivo `α·T_viaje + β·Penalización_Idoneidad` | `domain/dispatch/` → `funcion_costo.py` | `costo(unidad, incidente, factores=...)` (pendiente) | [CP-04](../SRS.md#213-casos-de-prueba) Charlie+Básica · [CP-05](../SRS.md#213-casos-de-prueba) Echo+Básica | β = 600 s convierte la jerarquía MPDS×Tipo en penalización aditiva; Echo + Básica retorna `+∞` (excluida del argmin) | 🟡 H3 |
 | **RF-05** Selección óptima por `argmin_u Costo(u, i)` | `domain/dispatch/` → `seleccion.py` | `seleccionar_unidad(unidades_disponibles, incidente)` (pendiente) | CP-04 · CP-11 (empate lexicográfico) | Unidad seleccionada minimiza el costo; ante empate se desempata por ID lexicográfico ascendente | 🟡 H3 |
 | **RF-06** Log inmutable JSON de cada despacho confirmado | `adapters/log_jsonl.py` | `append_evento(log, evento)` sobre JSONL append-only (ADR-0007) | [CP-08](../SRS.md#213-casos-de-prueba) intento de edición | Edición rechazada con HTTP 403; entrada de auditoría generada; registro original sin cambios | 🟡 H4 |
@@ -54,7 +54,7 @@ La matriz cubre los **doce Requisitos Funcionales** (RF-01..RF-12), las **diez R
 | **RN-06** Confirmación humana de re-despacho | `domain/dispatch/redespacho.py` | `evaluar_redespacho()` solo emite propuesta | CP-06 | Re-despacho propuesto, nunca ejecutado sin confirmación del operador | 🟡 H3 |
 | **RN-07** Append-only de logs | `adapters/log_jsonl.py` | Identico a RN-03 (separa concepto: "no modificar" vs "solo agregar") | CP-08 | Intento de modificar registro existente falla con error y alerta de auditoría | 🟡 H4 |
 | **RN-08** Saturación de flota | `application/saturacion.py` | `detectar_saturacion(flota)` (pendiente) | CP-10 | Sin Disponibles: reporta saturación + lista EnRuta ordenada por progreso | 🟡 H3 |
-| **RN-09** Snap al nodo OSM si > 500 m | `adapters/grafo_osmnx.py` | `snap_a_nodo(grafo, coord, tolerancia_m=500)` (pendiente) | _Test (pendiente, post-H2)_ | Coordenadas válidas sin nodo cercano: snap al más cercano + alerta visual con distancia | 🟡 H2 |
+| **RN-09** Snap al nodo OSM si > 500 m | `adapters/grafo_osmnx.py` | `OsmnxGrafoVial.nodo_mas_cercano()` + `distancia_snap_m()` ([grafo_osmnx.py](../../core-python/src/sentinel_dispatch/adapters/grafo_osmnx.py)) | 11 tests UT en [test_grafo_osmnx_snap.py](../../core-python/tests/unit/adapters/test_grafo_osmnx_snap.py) (Normal/Borde/Error/RN) | Coord exacta → snap idéntico (d=0); coord intermedia → nodo más cercano; coord lejana (>500 m) → `distancia_snap_m` supera el umbral RN-09 para que el borde dispare la alerta; coord fuera de rango lanza `NodoFueraDeRangoError` | ✅ H2 |
 | **RN-10** Autenticación obligatoria + HTTPS | `interfaces/api` | Middleware FastAPI (pendiente) | _Test de seguridad (post-H4)_ | Toda operación requiere sesión autenticada; sin HTTPS rechaza la conexión | 🟡 H4 |
 
 ### Reglas de Negocio del módulo Triaje (ya verificadas)
@@ -93,9 +93,32 @@ La pauta de la Segunda Evaluación pide, por módulo: **≥ 2 normales**, **≥ 
 
 Mínimo solicitado por la pauta para el módulo: 7. Cobertura efectiva: 36 (5.1× el mínimo).
 
-### 5.2 Módulos pendientes — `routing/`, `dispatch/`, `application/`, `adapters/`
+### 5.2 Módulo `domain/routing/` — ✅ cumple (H2)
 
-Estos módulos están **diseñados** (SRS + ADR + vista C4) pero su implementación corresponde a hitos posteriores del cronograma (H2/H3/H4). Para la Segunda Evaluación se documentan en esta matriz como `🟡 pendiente` con la función planificada y el caso de prueba del SRS al que responderán. La defensa argumentará: el diseño está cerrado, la implementación se ejecuta secuencialmente para evitar duplicar bugs entre Python y Java (ver [README §Anti-patrones](../../README.md#anti-patrones-detectados)).
+Suite `core-python/tests/unit/domain/routing/` con **20 tests verdes** distribuidos entre A* puro y heurística Haversine:
+
+| Tipo | Tests representativos |
+|---|---|
+| **Normal** | `test_camino_directo_es_optimo`, `test_camino_con_desvio_mas_corto_es_preferido`, `test_origen_igual_destino_retorna_cero_y_lista_unitaria`, `test_factor_sirena_14_reduce_eta`, `test_haversine_m_la_serena_coquimbo_aprox_11km`, `test_haversine_segundos_igual_a_distancia_sobre_vmax` |
+| **Borde** | `test_tie_breaking_es_deterministico`, `test_haversine_m_mismo_punto_es_cero`, `test_haversine_segundos_valores_concretos[…]` (parametrizado, casos en frontera) |
+| **Error** | `test_sin_camino_lanza_no_ruta_disponible_error`, `test_factor_hora_invalido_lanza_value_error[0.0|-1.0|-0.001]`, `test_factor_sirena_invalido_lanza_value_error[…]` |
+| **Regla de Negocio** | `test_heuristica_admisible_h_origen_menor_que_eta_real` (admisibilidad ⇒ optimalidad), `test_haversine_m_es_simetrica`, `test_factor_hora_05_duplica_eta` (semántica de factores SRS sec. 2.6-B) |
+
+### 5.3 Módulo `adapters/grafo_osmnx.py` — ✅ cumple (H2)
+
+| Tipo | Cantidad | Tests |
+|---|---|---|
+| **Normal** | 3 | `test_coordenada_exacta_de_nodo_devuelve_ese_nodo`, `test_coordenada_intermedia_devuelve_el_nodo_mas_cercano`, `test_coordenada_cerca_de_tierras_blancas_devuelve_nodo_4` |
+| **Borde** | 2 | `test_latitud_en_limite_inferior_no_lanza`, `test_longitud_en_limite_superior_no_lanza` |
+| **Error** | 3 | `test_latitud_fuera_de_rango_inferior_lanza`, `test_longitud_fuera_de_rango_superior_lanza`, `test_grafo_sin_nodos_lanza` |
+| **Regla de Negocio** | 3 | `test_distancia_snap_exacto_es_cero`, `test_distancia_snap_dentro_de_500m_es_aceptable_para_rn09`, `test_distancia_snap_mayor_a_500m_activa_alerta_rn09` |
+| **Total** | **11** | suite `core-python/tests/unit/adapters/test_grafo_osmnx_snap.py` |
+
+Validación IT-01 con OSRM oracle (CP-01a/b, ADR-0011): [test_routing_vs_osrm.py](../../core-python/tests/integration/test_routing_vs_osrm.py) — assert ≥ 75/100 pares con `|Δ_distance|/d_OSRM ≤ 0.30` (resultado: 78/100). Reporta también la distribución de divergencia en `duration`.
+
+### 5.4 Módulos pendientes — `dispatch/`, `application/`
+
+Estos módulos están **diseñados** (SRS + ADR + vista C4) pero su implementación corresponde a hitos posteriores del cronograma (H3/H4). Para la Segunda Evaluación se documentan en esta matriz como `🟡 pendiente` con la función planificada y el caso de prueba del SRS al que responderán. La defensa argumentará: el diseño está cerrado, la implementación se ejecuta secuencialmente para evitar duplicar bugs entre Python y Java (ver [README §Anti-patrones](../../README.md#anti-patrones-detectados)).
 
 ## 6. Cómo regenerar / reproducir esta matriz
 
