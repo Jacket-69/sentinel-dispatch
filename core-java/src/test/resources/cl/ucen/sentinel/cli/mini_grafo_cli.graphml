@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key id="d0" for="node" attr.name="y" attr.type="string" />
+  <key id="d1" for="node" attr.name="x" attr.type="string" />
+  <key id="d2" for="edge" attr.name="length" attr.type="string" />
+  <key id="d3" for="edge" attr.name="speed_kph" attr.type="string" />
+  <graph edgedefault="directed">
+    <!-- Nodo cerca de U01 (base Hospital San Juan de Dios La Serena): lat=-29.9077, lon=-71.2535 -->
+    <node id="200001">
+      <data key="d0">-29.9077</data>
+      <data key="d1">-71.2535</data>
+    </node>
+    <!-- Nodo intermedio -->
+    <node id="200002">
+      <data key="d0">-29.9100</data>
+      <data key="d1">-71.2560</data>
+    </node>
+    <!-- Nodo destino incidente: lat=-29.9100, lon=-71.2565 -->
+    <node id="200003">
+      <data key="d0">-29.9100</data>
+      <data key="d1">-71.2565</data>
+    </node>
+    <!-- Nodo cerca de U02 (CESFAM Pedro Aguirre Cerda): lat=-29.9015, lon=-71.2433 -->
+    <node id="200004">
+      <data key="d0">-29.9015</data>
+      <data key="d1">-71.2433</data>
+    </node>
+    <!-- Aristas para que A* encuentre rutas viables -->
+    <edge source="200001" target="200002" id="e1">
+      <data key="d2">350.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+    <edge source="200002" target="200003" id="e2">
+      <data key="d2">50.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+    <edge source="200004" target="200002" id="e3">
+      <data key="d2">800.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+    <!-- Aristas de retorno para conectar el grafo -->
+    <edge source="200003" target="200001" id="e4">
+      <data key="d2">420.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+    <edge source="200003" target="200004" id="e5">
+      <data key="d2">900.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+    <edge source="200001" target="200003" id="e6">
+      <data key="d2">400.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+    <edge source="200004" target="200003" id="e7">
+      <data key="d2">850.0</data>
+      <data key="d3">50.0</data>
+    </edge>
+  </graph>
+</graphml>
