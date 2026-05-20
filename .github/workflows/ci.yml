@@ -154,7 +154,7 @@ jobs:
 
       - name: Run dataset on core-java
         working-directory: core-java
-        run: mvn -B exec:java -Dexec.mainClass="cl.ucen.sentinel.cli.Main" -Dexec.args="run-dataset --in ../data/dataset/incidentes.json --unidades ../data/dataset/unidades.json --graph ../data/graphs/coquimbo.graphml --out /tmp/java-out/"
+        run: mvn -B compile exec:java -Dexec.mainClass="cl.ucen.sentinel.cli.Main" -Dexec.args="run-dataset --in ../data/dataset/incidentes.json --unidades ../data/dataset/unidades.json --graph ../data/graphs/coquimbo.graphml --out /tmp/java-out/"
 
       - name: Compare outputs (RT-02)
         run: |
