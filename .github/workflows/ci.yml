@@ -150,7 +150,7 @@ jobs:
 
       - name: Run dataset on core-python
         working-directory: core-python
-        run: uv run python -m sentinel_dispatch run-dataset --out /tmp/python-out/
+        run: uv run sentinel run-dataset --out /tmp/python-out/
 
       - name: Run dataset on core-java
         working-directory: core-java
