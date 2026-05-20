@@ -133,7 +133,6 @@ jobs:
   compare:
     runs-on: ubuntu-latest
     needs: [python-test, java-test]
-    if: false  # activar cuando exista core-python/.../interfaces/cli/run-dataset y core-java run-dataset
     steps:
       - uses: actions/checkout@v4
 
@@ -155,7 +154,7 @@ jobs:
 
       - name: Run dataset on core-java
         working-directory: core-java
-        run: mvn -B exec:java -Dexec.mainClass="cl.ucen.sentinel.cli.Main" -Dexec.args="run-dataset --in ../data/dataset/incidentes.json --graph ../data/graphs/coquimbo.graphml --out /tmp/java-out/"
+        run: mvn -B exec:java -Dexec.mainClass="cl.ucen.sentinel.cli.Main" -Dexec.args="run-dataset --in ../data/dataset/incidentes.json --unidades ../data/dataset/unidades.json --graph ../data/graphs/coquimbo.graphml --out /tmp/java-out/"
 
       - name: Compare outputs (RT-02)
         run: |
