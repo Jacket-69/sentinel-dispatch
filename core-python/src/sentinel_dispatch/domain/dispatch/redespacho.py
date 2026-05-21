@@ -83,6 +83,30 @@ class PropuestaRedespacho:
     incidente_nuevo: Incidente
 
 
+def _veto(
+    razon: str,
+    *,
+    unidad_actual: Unidad,
+    incidente_actual: Incidente,
+    incidente_nuevo: Incidente,
+) -> PropuestaRedespacho:
+    """Construye una :class:`PropuestaRedespacho` con ``procede=False``.
+
+    Factory de los 3 vetos de RN-06 (criticidad / progreso / cobertura)
+    para evitar duplicar el constructor con misma estructura. Siempre
+    deja ``unidad_de_reemplazo=None`` por construcción: los vetos no
+    proponen reemplazo.
+    """
+    return PropuestaRedespacho(
+        procede=False,
+        razon=razon,
+        unidad_a_redirigir=unidad_actual,
+        unidad_de_reemplazo=None,
+        incidente_actual=incidente_actual,
+        incidente_nuevo=incidente_nuevo,
+    )
+
+
 def evaluar_redespacho(
     unidad_actual: Unidad,
     incidente_actual: Incidente,
@@ -117,28 +141,20 @@ def evaluar_redespacho(
         sin tener que adivinar qué condición vetó.
     """
     if not (incidente_nuevo.categoria_mpds > incidente_actual.categoria_mpds):
-        return PropuestaRedespacho(
-            procede=False,
-            razon=(
-                f"Categoría nueva ({incidente_nuevo.categoria_mpds.value}) no es "
-                f"mayor que la actual ({incidente_actual.categoria_mpds.value}); "
-                "RN-06 condición 1 no se cumple."
-            ),
-            unidad_a_redirigir=unidad_actual,
-            unidad_de_reemplazo=None,
+        return _veto(
+            f"Categoría nueva ({incidente_nuevo.categoria_mpds.value}) no es "
+            f"mayor que la actual ({incidente_actual.categoria_mpds.value}); "
+            "RN-06 condición 1 no se cumple.",
+            unidad_actual=unidad_actual,
             incidente_actual=incidente_actual,
             incidente_nuevo=incidente_nuevo,
         )
 
     if progreso_pct > UMBRAL_PROGRESO_MAXIMO:
-        return PropuestaRedespacho(
-            procede=False,
-            razon=(
-                f"Progreso={progreso_pct:.0%} > {UMBRAL_PROGRESO_MAXIMO:.0%}; "
-                "RN-06 condición 2 no se cumple."
-            ),
-            unidad_a_redirigir=unidad_actual,
-            unidad_de_reemplazo=None,
+        return _veto(
+            f"Progreso={progreso_pct:.0%} > {UMBRAL_PROGRESO_MAXIMO:.0%}; "
+            "RN-06 condición 2 no se cumple.",
+            unidad_actual=unidad_actual,
             incidente_actual=incidente_actual,
             incidente_nuevo=incidente_nuevo,
         )
@@ -150,14 +166,10 @@ def evaluar_redespacho(
         tiempos_viaje_al_incidente_actual,
     )
     if seleccion.elegida is None:
-        return PropuestaRedespacho(
-            procede=False,
-            razon=(
-                f"Sin cobertura alternativa para {incidente_actual.id}; "
-                "RN-06 condición 3 no se cumple."
-            ),
-            unidad_a_redirigir=unidad_actual,
-            unidad_de_reemplazo=None,
+        return _veto(
+            f"Sin cobertura alternativa para {incidente_actual.id}; "
+            "RN-06 condición 3 no se cumple.",
+            unidad_actual=unidad_actual,
             incidente_actual=incidente_actual,
             incidente_nuevo=incidente_nuevo,
         )
