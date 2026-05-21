@@ -94,6 +94,7 @@ def cargar_grafo_iv_region(
     bbox: tuple[float, float, float, float] = BBOX_IV_REGION,
     ruta_cache: Path = GRAPHML_PATH,
     forzar_descarga: bool = False,
+    factor_calibracion: float = 1.0,
 ) -> nx.MultiDiGraph:
     """Carga el grafo vial de la conurbación La Serena-Coquimbo, con caché local.
 
@@ -110,15 +111,27 @@ def cargar_grafo_iv_region(
         Path al archivo ``.graphml`` de caché. Por defecto :data:`GRAPHML_PATH`.
     forzar_descarga:
         Si ``True``, ignora la caché existente y re-descarga.
+    factor_calibracion:
+        Multiplicador aplicado al ``speed_kph`` de cada arista tras la carga
+        (ADR-0013 §H4-cal-1). Default ``1.0`` (sin cambio). Usar ``0.85``
+        para acercar las velocidades efectivas al perfil ``car.lua`` de OSRM
+        (CP-01c). NO se persiste a disco — la calibración vive solo en memoria
+        para no contaminar el grafo cacheado ni la paridad RT-02.
 
     Retorna
     -------
     nx.MultiDiGraph
-        Grafo vial con atributo ``speed_kph`` en todas las aristas.
+        Grafo vial con atributo ``speed_kph`` en todas las aristas, opcionalmente
+        escalado por ``factor_calibracion``.
     """
+    if factor_calibracion <= 0:
+        raise ValueError(f"factor_calibracion debe ser > 0, recibido: {factor_calibracion}")
+
     if ruta_cache.exists() and not forzar_descarga:
         _log.info("Cargando grafo desde caché: %s", ruta_cache)
         grafo: nx.MultiDiGraph = ox.load_graphml(ruta_cache)
+        if factor_calibracion != 1.0:
+            _aplicar_factor_calibracion(grafo, factor_calibracion)
         return grafo
 
     _log.info("Descargando grafo vial desde OSM (bbox=%s)…", bbox)
@@ -136,7 +149,21 @@ def cargar_grafo_iv_region(
     ruta_cache.parent.mkdir(parents=True, exist_ok=True)
     ox.save_graphml(grafo, filepath=ruta_cache)
     _log.info("Grafo persistido en: %s", ruta_cache)
+
+    if factor_calibracion != 1.0:
+        _aplicar_factor_calibracion(grafo, factor_calibracion)
     return grafo
+
+
+def _aplicar_factor_calibracion(grafo: nx.MultiDiGraph, factor: float) -> None:
+    """Escala el ``speed_kph`` de cada arista por ``factor`` (in-place).
+
+    Solo afecta el grafo en memoria; el archivo GraphML cacheado en disco no
+    se modifica. ADR-0013 §H4-cal-1.
+    """
+    for _u, _v, data in grafo.edges(data=True):
+        speed = data.get("speed_kph", MAXSPEED_FALLBACK_KMH)
+        data["speed_kph"] = float(speed) * factor
 
 
 # ---------------------------------------------------------------------------

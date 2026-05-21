@@ -47,6 +47,50 @@ Tres pasos secuenciales, cada uno como sub-PR independiente dentro de H4:
 
 Cada paso es un commit/PR separable porque cada uno tiene un efecto medible aislado: la *calibración* y los *turn penalties* mueven la distribución de `duration`, no la de `distance` — CP-01a seguirá pasando si CP-01c pasa.
 
+## Resultado de ejecución H4-cal-eval (2026-05-21)
+
+**Status**: sigue `proposed`. Las dos mejoras se ejecutaron pero el criterio numérico **no se alcanza** sin la mejora 3 (snap-to-edge), que está en H5.
+
+### Implementación de las mejoras 1 y 2
+
+- **H4-cal-1** ✅: `cargar_grafo_iv_region(factor_calibracion=0.85)` aplica el factor in-memory al `speed_kph` de cada arista. No persiste al GraphML cacheado para no contaminar la paridad RT-02.
+- **H4-cal-2** ✅: `domain/routing/a_estrella_calibrado.py` implementa el A* extendido con state `(nodo, nodo_previo)` y `turn_penalty_s=2.0` por giro `>30°`. Vive como módulo separado del A* operativo; preserva paridad bit-exacta RT-02 (CI `compare` 12/12 OK).
+
+### Medición sobre `osrm_oracle.json` (100 pares)
+
+`test_routing_vs_osrm.py::test_cp01c_calibracion_y_turn_penalty`:
+
+| Métrica | Valor |
+|---|---|
+| dentro ±15 % | **27/100** (mínimo CP-01c: 85/100) |
+| mediana | 0.250 |
+| p75 | 0.367 |
+| p95 | 0.836 |
+| ±5 % | 6/100 |
+| ±10 % | 20/100 |
+| ±20 % | 37/100 |
+| ±30 % | 65/100 |
+| ±50 % | 88/100 |
+
+**Veredicto**: CP-01c **NO alcanzado** con calibración + turn penalty sola. La mejora vs el A* original es real (mediana cae de ~0.38 a 0.25, distancia ±30 % sube de 65 → 65 sin cambio neto a ±30 %, pero ±20 % se llena bien), pero el sweet spot de mejora cae en ±20 %, no en ±15 %.
+
+### Análisis: por qué el ±15 % no se cierra
+
+Recordando la descomposición empírica de outliers ([ADR-0011](0011-reformulacion-criterio-it01.md) §Diagnóstico):
+
+- 68 % de outliers atribuidos a **snap-to-node**.
+- 14 % a **filtrado de vías** (`car.lua`).
+- 18 % residual.
+
+Las mejoras 1 y 2 atacan el residual + parte del filtrado; el 68 % de snap-to-node **sigue sin tratamiento**. Por eso el criterio se acerca pero no llega.
+
+### Decisión
+
+1. **Este ADR sigue `proposed`**, no `accepted`.
+2. **Test integration `test_cp01c_calibracion_y_turn_penalty` marcado `xfail` `strict=True`** con razón documentada: "Esperar H5 Ruta A snap-to-edge".
+3. **ADR-0020 nuevo** ([0020-cp01c-parcial-snap-to-edge-necesario.md](0020-cp01c-parcial-snap-to-edge-necesario.md)) congela el resultado parcial y plantea el plan H5.
+4. **No bloquea cierre de H4**: CP-01c no era requisito de H4, solo objetivo. Las mejoras 1 y 2 quedan en el código del repo para que H5 las consuma.
+
 ## Por qué placeholder y no implementación inmediata
 
 - **H2 ya cerró** (PR #5 mergeado 2026-05-18) con CP-01a/b. Reabrir H2 para meter calibración rompe la disciplina de hitos del cronograma académico.
