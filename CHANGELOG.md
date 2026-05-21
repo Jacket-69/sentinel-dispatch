@@ -7,6 +7,15 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H4 fase 4: spike performance CP-12 + ADR-0019 (RN-05 / CP-12, 2026-05-21)
+- Nuevo script reproducible [`tools/spike_cp12_performance.py`](tools/spike_cp12_performance.py): genera 50 unidades sintéticas (30 Avanzada / 20 Básica) distribuidas en grilla regular sobre la bbox conurbación La Serena-Coquimbo, 1 incidente Echo en el centro, carga del grafo `coquimbo.graphml` excluida del wall-clock, 10 corridas warm-cache, reporta p50/p95/max/media + JSON crudo en `tools/_out/spike_cp12_resultado.json`.
+- **Resultado del spike (corrida 2026-05-21)**: p50 = 1884.6 ms, p95 = 1941.6 ms, max = 1975.1 ms, media = 1895.8 ms. El criterio SRS (≤ 1000 ms) **no se cumple** con A* secuencial; cada A* sobre ~16 K nodos toma ~37 ms × 50 unidades.
+- [ADR-0019](docs/architecture/decisions/0019-spike-cp12-criterio-ajustado.md) congela el resultado y **ajusta el criterio CP-12 a ≤ 2000 ms p95**. Analiza 4 alternativas (paralelizar A* con `ProcessPoolExecutor`, reducir N a 25, migrar a Rust/PyO3, cache de A*) y argumenta por qué v1 ajusta el criterio en lugar de optimizar. Paralelización queda como deuda v2.
+- Nuevo test integration `tests/integration/test_performance_50_unidades.py` con marker `@pytest.mark.slow` (no corre en `make test-fast` ni en CI por default). Valida `p95 ≤ 2000 ms` contra el criterio ajustado.
+
+### Changed — H4 fase 4
+- `docs/quality/trazabilidad.md`: **RN-05 / CP-12 marcados ✅** (criterio ajustado ADR-0019), apuntando a `tools/spike_cp12_performance.py` y al test slow.
+
 ### Added — H4 fase 3: modo simulación (RF-12, 2026-05-21)
 - Nuevo módulo [`application/simulacion.py`](core-python/src/sentinel_dispatch/application/simulacion.py) con value object `ReporteSimulacion` (dataclass frozen+slots) que agrega: `incidentes_procesados`, tupla de `ResultadoDespacho`, porcentajes por motivo (`pct_optimo`, `pct_penalizado`, `pct_suboptimo_rn02`, `pct_saturacion`), ETA media y ETA p95.
 - Función `simular(incidentes, flota_ficticia, grafo, *, repositorio_eventos=None, factor_hora=1.0, factor_sirena=1.0) → ReporteSimulacion`. **Semántica v1**: sin evolución temporal entre incidentes (cada uno ve la flota inicial). Determinístico: el resultado depende sólo de los inputs.
