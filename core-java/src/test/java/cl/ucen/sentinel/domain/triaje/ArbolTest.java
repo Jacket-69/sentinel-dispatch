@@ -231,12 +231,14 @@ class ArbolTest {
             .getClassLoader()
             .getResourceAsStream("cl/ucen/sentinel/domain/triaje/incidentes.json");
 
-    if (is == null) {
-      // El dataset no está en el classpath de test — saltar sin fallar el build.
-      // TODO H3-J-7: copiar incidentes.json al directorio de recursos de test
-      // o cargar desde ruta relativa al monorepo.
-      return;
-    }
+    // El dataset debe estar en src/test/resources/cl/ucen/sentinel/domain/triaje/incidentes.json
+    // (sincronizado con data/dataset/incidentes.json del monorepo). Si falta, regresión de
+    // classpath de test — fallar el build en lugar de saltar silenciosamente.
+    assertThat(is)
+        .as(
+            "incidentes.json debe estar en el classpath de test"
+                + " (src/test/resources/cl/ucen/sentinel/domain/triaje/)")
+        .isNotNull();
 
     List<Map<String, Object>> incidentes =
         mapper.readValue(is, new TypeReference<List<Map<String, Object>>>() {});
