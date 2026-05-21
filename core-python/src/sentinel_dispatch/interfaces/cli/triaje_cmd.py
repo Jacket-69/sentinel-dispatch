@@ -61,6 +61,42 @@ def _respuesta_desde_dict(data: dict[str, Any]) -> RespuestaTriaje:
     )
 
 
+def _parsear_json_inline_o_exit(json_input: str) -> dict[str, Any]:
+    """Parsea un JSON inline; aborta con exit code 2 si es inválido.
+
+    El substring ``"JSON inválido"`` queda fijo (los tests lo assertean).
+    """
+    try:
+        return json.loads(json_input)
+    except json.JSONDecodeError as exc:
+        typer.secho(
+            f"Error: JSON inválido — {exc.msg} (línea {exc.lineno}, col {exc.colno}).",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
+
+
+def _respuesta_desde_flags(
+    *,
+    consciente: bool,
+    respira_normal: bool,
+    sangrado: NivelSangrado,
+    dolor_toracico: NivelDolorToracico,
+    dificultad_respiratoria: bool,
+    grupo_etario: GrupoEtario,
+) -> RespuestaTriaje:
+    """Construye :class:`RespuestaTriaje` desde los 6 flags individuales."""
+    return RespuestaTriaje(
+        consciente=consciente,
+        respira_normal=respira_normal,
+        sangrado=sangrado,
+        dolor_toracico=dolor_toracico,
+        dificultad_respiratoria=dificultad_respiratoria,
+        grupo_etario=grupo_etario,
+    )
+
+
 @app.command("classify")
 def classify(
     consciente: Annotated[
@@ -127,18 +163,9 @@ def classify(
     herramientas de shell.
     """
     if json_input is not None:
-        try:
-            data = json.loads(json_input)
-        except json.JSONDecodeError as exc:
-            typer.secho(
-                f"Error: JSON inválido — {exc.msg} (línea {exc.lineno}, col {exc.colno}).",
-                fg=typer.colors.RED,
-                err=True,
-            )
-            raise typer.Exit(code=2) from exc
-        respuesta = _respuesta_desde_dict(data)
+        respuesta = _respuesta_desde_dict(_parsear_json_inline_o_exit(json_input))
     else:
-        respuesta = RespuestaTriaje(
+        respuesta = _respuesta_desde_flags(
             consciente=consciente,
             respira_normal=respira_normal,
             sangrado=sangrado,
