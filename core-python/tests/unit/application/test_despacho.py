@@ -518,3 +518,69 @@ class TestRutaNodos:
         assert len(resultado.ruta_nodos) >= 2
         assert resultado.ruta_nodos[0] == nodo_base_u07
         assert resultado.ruta_nodos[-1] == nodo_incidente
+
+
+# ---------------------------------------------------------------------------
+# Retornos None tempranos de _fallback_rn02_basica (auditoría pre-H4 #3)
+# ---------------------------------------------------------------------------
+
+
+class TestFallbackRetornoNone:
+    """Cobertura de los tres retornos ``None`` de ``_fallback_rn02_basica``.
+
+    Estas ramas no son alcanzables desde ``despachar`` con el camino feliz
+    (el orquestador llama al fallback solo cuando ``seleccion.elegida is None``
+    y hay disponibles, condición que las propias preguardas del fallback no
+    pueden reproducir desde la API pública). Se invoca la función privada
+    directamente para asegurar cobertura de las preguardas RN-02.
+    """
+
+    def test_categoria_no_critica_retorna_none(self) -> None:
+        """Línea 141: categoría fuera de {ECHO, DELTA} → fallback no aplica.
+
+        Alpha + única Básica disponible con T_viaje finito: el orquestador
+        elegiría la Básica con costo 0 (camino feliz). Acá invocamos el
+        fallback directamente para verificar que retorna None por la
+        primera preguarda (categoría no crítica).
+        """
+        unidad = _u("U02", tipo=TipoUnidad.BASICA)
+        incidente = _i("I-fb-01", CategoriaMPDS.ALPHA)
+        tiempos = {"U02": 150.0}
+
+        resultado = _da._fallback_rn02_basica([unidad], incidente, tiempos)
+
+        assert resultado is None
+
+    def test_categoria_critica_sin_basicas_disponibles_retorna_none(self) -> None:
+        """Línea 144: Echo con disponibles=[Avanzada] (sin Básicas) → fallback no aplica.
+
+        Escenario: flota saturada para Echo pero quedan solo Avanzadas
+        sin ruta (caso teórico — en práctica el seleccionar_unidad ya las
+        habría elegido). El fallback no debe inventarse una Básica que no
+        existe.
+        """
+        unidad = _u("U01", tipo=TipoUnidad.AVANZADA)
+        incidente = _i("I-fb-02", CategoriaMPDS.ECHO)
+        tiempos = {"U01": math.inf}
+
+        resultado = _da._fallback_rn02_basica([unidad], incidente, tiempos)
+
+        assert resultado is None
+
+    def test_categoria_critica_basicas_sin_ruta_finita_retorna_none(self) -> None:
+        """Línea 149: Echo con Básicas pero todas con ``T_viaje=inf`` → fallback no aplica.
+
+        Borde entre fallback y saturación: hay Básicas Disponibles
+        registradas pero ninguna tiene ruta calculable. El fallback no
+        debe elegir una unidad que no puede llegar.
+        """
+        unidades = [
+            _u("U07", tipo=TipoUnidad.BASICA),
+            _u("U08", tipo=TipoUnidad.BASICA),
+        ]
+        incidente = _i("I-fb-03", CategoriaMPDS.ECHO)
+        tiempos = {"U07": math.inf, "U08": math.inf}
+
+        resultado = _da._fallback_rn02_basica(unidades, incidente, tiempos)
+
+        assert resultado is None

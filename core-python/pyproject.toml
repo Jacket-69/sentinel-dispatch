@@ -150,9 +150,10 @@ addopts = [
     "--strict-config",
     "--cov=sentinel_dispatch",
     "--cov-report=term-missing",
-    # F0: threshold en 0 durante scaffolding. Subir a 70 cuando los módulos de
-    # dominio (triaje/routing/dispatch) tengan código real en F3.
-    "--cov-fail-under=0",
+    # Cobertura real post H3 + H3-J: 96%. Threshold en 90 deja margen
+    # holgado para H4 (log JSONL + exportador + simulación) sin falsas
+    # alarmas y previene regresiones silenciosas.
+    "--cov-fail-under=90",
 ]
 asyncio_mode = "auto"
 markers = [
