@@ -7,6 +7,16 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H4 fase 2: exportador CSV/JSON (RF-11, 2026-05-21)
+- Nuevo adapter [`adapters/exportador.py`](core-python/src/sentinel_dispatch/adapters/exportador.py): funciones puras `exportar_a_csv(eventos, path)` y `exportar_a_json(eventos, path)`. CSV con flatten de `payload_*` (e.g. `payload_costo_total`) y encoding `utf-8-sig` (BOM para que Excel español abra correctamente). JSON como array indentado sin BOM. Helper `_aplanar_dict(d, prefijo)` aplana dicts recursivamente; listas (e.g. `ruta`) se serializan como JSON string en una sola celda.
+- Nuevo subcomando CLI [`interfaces/cli/export_cmd.py`](core-python/src/sentinel_dispatch/interfaces/cli/export_cmd.py): `sentinel export --formato {csv,json} --in eventos.jsonl --out reporte.{csv,json}`. Enum `FormatoExport(csv|json)` para validación de argumento. Exit 0 en éxito, 2 si `--in` no existe o el JSONL es corrupto.
+- Tests: **14 nuevos** verdes en [`test_exportador.py`](core-python/tests/unit/adapters/test_exportador.py) — `TestAplanarDict` (3), `TestExportarCsv` (4 incluyendo unión de columnas para payloads heterogéneos y verificación del BOM), `TestExportarJson` (3), `TestCliExport` (4 end-to-end con archivo válido, corrupto e inexistente). Suite total **249/249** verde; cobertura global **92.66 %**.
+- Diseño: el log canónico JSONL fuente (ADR-0007) **no se modifica** por el export — los archivos derivados (CSV/JSON) son artefactos para auditoría externa. RN-03 preservado.
+
+### Changed — H4 fase 2
+- `docs/quality/trazabilidad.md`: **RF-11 marcado ✅** apuntando a `adapters/exportador.py` + `interfaces/cli/export_cmd.py`.
+- `interfaces/cli/app.py`: registro del subcomando `export` (`app.command("export")(export_cmd.export)`).
+
 ### Added — H4 fase 1: log de eventos JSONL append-only (RF-06 / RN-03 / RN-07 / CP-08, 2026-05-21)
 - Nuevo port [`ports/repositorio_eventos.py`](core-python/src/sentinel_dispatch/ports/repositorio_eventos.py) con:
   - `EventoLog` (Pydantic BaseModel frozen, `extra="forbid"`, validación strict) que representa un evento del log.
