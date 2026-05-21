@@ -13,7 +13,12 @@ from __future__ import annotations
 
 import typer
 
-from sentinel_dispatch.interfaces.cli import export_cmd, run_dataset_cmd, triaje_cmd
+from sentinel_dispatch.interfaces.cli import (
+    export_cmd,
+    run_dataset_cmd,
+    simular_cmd,
+    triaje_cmd,
+)
 
 app = typer.Typer(
     name="sentinel",
@@ -25,6 +30,7 @@ app = typer.Typer(
 app.add_typer(triaje_cmd.app, name="triaje")
 app.command("run-dataset")(run_dataset_cmd.run_dataset)
 app.command("export")(export_cmd.export)
+app.command("simular")(simular_cmd.simular_cmd)
 
 
 if __name__ == "__main__":  # pragma: no cover
