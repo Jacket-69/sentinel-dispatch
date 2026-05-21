@@ -447,3 +447,64 @@ class TestReglasNegocio:
         assert isinstance(ruta, list)
         assert len(ruta) >= 2, "El fallback RN-02 también debe tener ruta"
         assert all(isinstance(n, str) for n in ruta)
+
+
+# ---------------------------------------------------------------------------
+# Integración con log de eventos (ADR-0018, RF-06)
+# ---------------------------------------------------------------------------
+
+
+class TestLogEventos:
+    def test_flag_log_eventos_persiste_evento_por_incidente(
+        self,
+        fake_grafo_y_tiempos: dict[str, float],
+        tmp_path: Path,
+    ) -> None:
+        """Con `--log-eventos PATH`: cada incidente produce un evento `despacho_creado`."""
+        from sentinel_dispatch.adapters.repositorio_jsonl import JsonlRepositorioEventos
+        from sentinel_dispatch.ports.repositorio_eventos import TipoEvento
+
+        out_dir = tmp_path / "out_logged"
+        eventos_path = tmp_path / "eventos.jsonl"
+        result = _invoke(
+            tmp_path,
+            incidentes=[
+                _incidente_json("I-01", categoria="Alpha"),
+                _incidente_json("I-02", categoria="Alpha"),
+            ],
+            unidades=[_UNIDAD_AVANZADA],
+            out_dir=out_dir,
+            extra_args=["--log-eventos", str(eventos_path)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert eventos_path.exists()
+
+        repo = JsonlRepositorioEventos(eventos_path)
+        eventos = list(repo.leer_todos())
+        assert len(eventos) == 2
+        assert {e.incidente_id for e in eventos} == {"I-01", "I-02"}
+        assert all(e.tipo is TipoEvento.DESPACHO_CREADO for e in eventos)
+        # Cada evento embebe el payload RT-02 (mismo schema ADR-0017).
+        for evento in eventos:
+            assert evento.payload["motivo"] == "optimo"
+            assert "costo" in evento.payload
+            assert "ruta" in evento.payload
+
+    def test_sin_flag_log_eventos_no_se_crea_archivo(
+        self,
+        fake_grafo_y_tiempos: dict[str, float],
+        tmp_path: Path,
+    ) -> None:
+        """Sin `--log-eventos`: el comportamiento RT-02 se preserva, sin escrituras adicionales."""
+        out_dir = tmp_path / "out_no_logged"
+        eventos_path = tmp_path / "eventos_no_creados.jsonl"
+        result = _invoke(
+            tmp_path,
+            incidentes=[_incidente_json("I-01", categoria="Alpha")],
+            unidades=[_UNIDAD_AVANZADA],
+            out_dir=out_dir,
+        )
+
+        assert result.exit_code == 0
+        assert not eventos_path.exists()

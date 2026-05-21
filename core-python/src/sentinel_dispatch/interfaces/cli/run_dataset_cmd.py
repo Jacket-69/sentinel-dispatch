@@ -22,15 +22,15 @@ serialización de la salida. La lógica de despacho ocurre en
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
-from typing import Annotated, Any, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 import typer
 
 from sentinel_dispatch.adapters.grafo_osmnx import OsmnxGrafoVial, cargar_grafo_iv_region
+from sentinel_dispatch.adapters.repositorio_jsonl import JsonlRepositorioEventos
 from sentinel_dispatch.application.despachar_ambulancia import despachar
-from sentinel_dispatch.application.tipos import MotivoDespacho, ResultadoDespacho
+from sentinel_dispatch.application.serializacion import serializar_resultado_despacho
 from sentinel_dispatch.domain.dispatch.tipos import (
     EstadoUnidad,
     Incidente,
@@ -38,6 +38,10 @@ from sentinel_dispatch.domain.dispatch.tipos import (
     Unidad,
 )
 from sentinel_dispatch.domain.triaje.tipos import CategoriaMPDS
+from sentinel_dispatch.ports.repositorio_eventos import EventoLog, TipoEvento
+
+if TYPE_CHECKING:
+    from sentinel_dispatch.application.tipos import ResultadoDespacho
 
 # No app Typer propio: la función se registra directamente en el app raíz
 # de app.py con @app.command("run-dataset") para evitar anidamiento doble.
@@ -88,67 +92,11 @@ def _incidente_desde_dict(data: dict[str, Any]) -> Incidente:
 
 
 # ---------------------------------------------------------------------------
-# Serialización del ResultadoDespacho → dict (schema ADR-0017)
-# ---------------------------------------------------------------------------
-
-
-def _serializar_resultado(resultado: ResultadoDespacho) -> dict[str, Any]:
-    """Convierte un :class:`ResultadoDespacho` al dict del schema ADR-0017.
-
-    Schema congelado (ADR-0017):
-
-    - ``incidente_id``: str.
-    - ``categoria_mpds``: str (valor del enum, e.g. "Alpha").
-    - ``unidad_seleccionada``: ``{"id": str}`` o ``null`` si saturación.
-    - ``despacho_suboptimo``: bool (``true`` solo para SUBOPTIMO_RN02).
-    - ``motivo``: str (valor del enum, e.g. "OPTIMO", "SATURACION").
-    - ``eta_segundos``: float o ``null`` si saturación.
-    - ``costo``: ``{"T_viaje": float, "penalizacion": float, "total": float}``
-      o ``null`` si saturación.
-    - ``ruta``: list[str] (IDs de nodo como strings; vacío en saturación).
-    """
-    incidente = resultado.incidente
-    motivo = resultado.motivo
-
-    es_saturacion = motivo is MotivoDespacho.SATURACION
-
-    unidad_sel: dict[str, str] | None = None
-    eta: float | None = None
-    costo_dict: dict[str, float] | None = None
-
-    if not es_saturacion and resultado.elegida is not None and resultado.costo_elegida is not None:
-        unidad_sel = {"id": resultado.elegida.id}
-        costo_obj = resultado.costo_elegida
-        # t_viaje_s es el tiempo ETA; excluir math.inf (no debe ocurrir fuera de saturación)
-        eta = costo_obj.t_viaje_s if math.isfinite(costo_obj.t_viaje_s) else None
-        t_viaje = costo_obj.t_viaje_s if math.isfinite(costo_obj.t_viaje_s) else 0.0
-        pen = costo_obj.penalizacion if math.isfinite(costo_obj.penalizacion) else 0.0
-        total = costo_obj.valor_total_s if math.isfinite(costo_obj.valor_total_s) else 0.0
-        costo_dict = {
-            "T_viaje": t_viaje,
-            "penalizacion": pen,
-            "total": total,
-        }
-
-    # Ruta de nodos de la unidad elegida, serializada como strings para evitar
-    # drift de int64 en parsers JSON de otros lenguajes (Java Long, etc.).
-    # En saturación ruta_nodos es () → ruta queda []. (ADR-0017 §ruta)
-    ruta: list[str] = [str(n) for n in resultado.ruta_nodos]
-
-    return {
-        "incidente_id": incidente.id,
-        "categoria_mpds": incidente.categoria_mpds.value,
-        "unidad_seleccionada": unidad_sel,
-        "despacho_suboptimo": resultado.despacho_suboptimo,
-        "motivo": motivo.value,
-        "eta_segundos": eta,
-        "costo": costo_dict,
-        "ruta": ruta,
-    }
-
-
-# ---------------------------------------------------------------------------
 # Helpers de borde (I/O + parseo)
+#
+# La serialización canónica del ResultadoDespacho vive en
+# `application.serializacion` (ADR-0017), reutilizada también por el
+# adapter de log JSONL (ADR-0018) para garantizar bit-exactitud.
 # ---------------------------------------------------------------------------
 
 
@@ -183,13 +131,45 @@ def _cargar_json_o_exit(path: Path, etiqueta: str) -> list[dict[str, Any]]:
         raise typer.Exit(code=2) from exc
 
 
+def _emitir_evento_despacho(
+    repo: JsonlRepositorioEventos,
+    resultado: ResultadoDespacho,
+    incidente: Incidente,
+    payload: dict[str, Any],
+) -> None:
+    """Persiste un evento ``despacho_creado`` con el ``payload`` ya serializado.
+
+    Reutiliza el dict producido por :func:`serializar_resultado_despacho`
+    como ``payload`` del evento. Esto garantiza bit-exactitud con el
+    schema RT-02 (ADR-0017) y evita drift entre el JSONL emitido por
+    incidente y el log canónico (ADR-0018).
+    """
+    despacho_id = (
+        f"SD-{incidente.timestamp_iso[:10].replace('-', '')}-{incidente.id.replace('I-', '')}"
+    )
+    evento = EventoLog(
+        evento_id=repo.generar_evento_id(),
+        timestamp_iso=incidente.timestamp_iso,
+        tipo=TipoEvento.DESPACHO_CREADO,
+        despacho_id=despacho_id,
+        incidente_id=incidente.id,
+        payload=payload,
+    )
+    repo.append(evento)
+
+
 def _procesar_incidentes(
     incidentes_raw: list[dict[str, Any]],
     flota: list[Unidad],
     grafo: OsmnxGrafoVial,
     out_dir: Path,
+    repo_eventos: JsonlRepositorioEventos | None = None,
 ) -> int:
     """Itera incidentes, despacha cada uno y escribe un JSONL por incidente.
+
+    Si ``repo_eventos`` es provisto, también persiste un evento
+    ``despacho_creado`` por incidente en el log canónico (ADR-0018);
+    omitirlo preserva la semántica RT-02 pura del ``run-dataset``.
 
     Returns:
         Número de incidentes procesados (== len(incidentes_raw) por construcción).
@@ -198,10 +178,14 @@ def _procesar_incidentes(
     for raw in incidentes_raw:
         incidente = _incidente_desde_dict(raw)
         resultado: ResultadoDespacho = despachar(incidente, flota, grafo)
-        salida = _serializar_resultado(resultado)
+        salida = serializar_resultado_despacho(resultado)
 
         out_file = out_dir / f"{incidente.id}.jsonl"
         out_file.write_text(json.dumps(salida, ensure_ascii=False) + "\n", encoding="utf-8")
+
+        if repo_eventos is not None:
+            _emitir_evento_despacho(repo_eventos, resultado, incidente, salida)
+
         procesados += 1
     return procesados
 
@@ -240,6 +224,16 @@ def run_dataset(
             help="Directorio de salida para los archivos JSONL (se crea si no existe).",
         ),
     ] = Path("out"),
+    log_eventos_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--log-eventos",
+            help=(
+                "(Opcional) Path al archivo eventos.jsonl global donde "
+                "persistir eventos `despacho_creado` por incidente (ADR-0018, RF-06)."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Corre el dataset de despacho y emite un JSONL por incidente.
 
@@ -249,8 +243,11 @@ def run_dataset(
     2. Construye la flota desde ``--unidades``.
     3. Ejecuta el caso de uso de despacho.
     4. Serializa el :class:`ResultadoDespacho` a ``<out>/<incidente.id>.jsonl``.
+    5. (Opcional, si ``--log-eventos`` está presente) persiste un
+       evento ``despacho_creado`` por incidente en el log canónico.
 
-    El schema JSONL está congelado en ADR-0017.
+    El schema JSONL del paso 4 está congelado en ADR-0017; el del log
+    canónico en ADR-0018 (reutiliza el mismo payload).
 
     Exit codes:
 
@@ -275,7 +272,12 @@ def run_dataset(
     grafo = OsmnxGrafoVial(grafo=grafo_nx)
     flota = [_unidad_desde_dict(u) for u in unidades_raw]
 
-    procesados = _procesar_incidentes(incidentes_raw, flota, grafo, out_dir)
+    repo_eventos = (
+        JsonlRepositorioEventos(log_eventos_path) if log_eventos_path is not None else None
+    )
 
-    typer.echo(f"Procesados {procesados} incidente(s). Salida en: {out_dir}")
+    procesados = _procesar_incidentes(incidentes_raw, flota, grafo, out_dir, repo_eventos)
+
+    sufijo = f" · eventos en {log_eventos_path}" if log_eventos_path is not None else ""
+    typer.echo(f"Procesados {procesados} incidente(s). Salida en: {out_dir}{sufijo}")
     raise typer.Exit(code=0)
