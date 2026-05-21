@@ -1,6 +1,7 @@
 package cl.ucen.sentinel.adapters.grafo;
 
 import cl.ucen.sentinel.domain.routing.GrafoVial;
+import cl.ucen.sentinel.domain.routing.Heuristica;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -139,7 +140,7 @@ public final class GrafoVialJGraphT implements GrafoVial {
 
     for (Map.Entry<Long, Coordenadas> entry : coordenadasPorNodo.entrySet()) {
       Coordenadas c = entry.getValue();
-      double distancia = haversineM(lat, lon, c.lat(), c.lon());
+      double distancia = Heuristica.haversineM(lat, lon, c.lat(), c.lon());
       if (distancia < mejorDistancia) {
         mejorDistancia = distancia;
         mejorNodo = entry.getKey();
@@ -161,32 +162,6 @@ public final class GrafoVialJGraphT implements GrafoVial {
   // --------------------------------------------------------------------------
   // Metodos auxiliares privados
   // --------------------------------------------------------------------------
-
-  /**
-   * Calcula la distancia haversine entre dos puntos en metros.
-   *
-   * <p>Replica la funcion {@code haversine_m} del Python en {@code domain/routing/heuristica.py}.
-   * Radio terrestre: 6_371_000 m.
-   *
-   * @param lat1 latitud del punto 1 en grados decimales
-   * @param lon1 longitud del punto 1 en grados decimales
-   * @param lat2 latitud del punto 2 en grados decimales
-   * @param lon2 longitud del punto 2 en grados decimales
-   * @return distancia en metros
-   */
-  static double haversineM(double lat1, double lon1, double lat2, double lon2) {
-    final double R = 6_371_000.0;
-    double dLat = Math.toRadians(lat2 - lat1);
-    double dLon = Math.toRadians(lon2 - lon1);
-    double a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(Math.toRadians(lat1))
-                * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLon / 2)
-                * Math.sin(dLon / 2);
-    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
 
   /**
    * Parsea un atributo String a double, retornando el default si el atributo es nulo, ausente o no
