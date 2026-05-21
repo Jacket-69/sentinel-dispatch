@@ -7,6 +7,22 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H4 fase 1: log de eventos JSONL append-only (RF-06 / RN-03 / RN-07 / CP-08, 2026-05-21)
+- Nuevo port [`ports/repositorio_eventos.py`](core-python/src/sentinel_dispatch/ports/repositorio_eventos.py) con:
+  - `EventoLog` (Pydantic BaseModel frozen, `extra="forbid"`, validación strict) que representa un evento del log.
+  - `TipoEvento` (StrEnum cerrado de 7 valores) alineado a `docs/data-model.md`.
+  - `RepositorioEventos` (Protocol `@runtime_checkable`) que define `append(evento)`, `leer_todos()` y `filtrar(...)`. **No expone `update`/`delete`** por diseño — RN-03 y RN-07 estructurales.
+  - `EventoDuplicadoError(ValueError)` para idempotencia ante reintentos.
+- Nuevo adapter [`adapters/repositorio_jsonl.py`](core-python/src/sentinel_dispatch/adapters/repositorio_jsonl.py) que implementa el port sobre archivo JSONL: abre con modo `"a"`, valida cada línea con Pydantic en escritura y lectura, dedupe por `evento_id` con set in-memory cargado desde disco, genera IDs únicos monotónicos con formato `EVT-<YYYYMMDDTHHMMSS>-<seq04>`.
+- Nuevo módulo [`application/serializacion.py`](core-python/src/sentinel_dispatch/application/serializacion.py) que extrae `serializar_resultado_despacho` de `interfaces/cli/run_dataset_cmd.py`. Es **punto único de verdad** del schema RT-02 (ADR-0017) y del payload del evento `despacho_creado` (ADR-0018): bit-exactitud garantizada por construcción.
+- CLI `sentinel run-dataset` ahora acepta flag opcional `--log-eventos PATH`: si presente, persiste un evento `despacho_creado` por incidente en el log canónico. Sin flag, el comportamiento RT-02 se preserva 100%.
+- [ADR-0018](docs/architecture/decisions/0018-schema-evento-log.md) congela el schema del evento_log: 6 campos en raíz (`evento_id`, `timestamp_iso`, `tipo`, `despacho_id`, `incidente_id`, `operador`) + `payload` subobjeto. Incluye **spike de viabilidad CP-08** documentando que el adapter detecta modificación externa via `EventoDuplicadoError` (duplicación de línea) y `ValidationError` de Pydantic (schema drift) al reabrir.
+- Tests: **22 nuevos** verdes — 16 UT del adapter (`tests/unit/adapters/test_repositorio_jsonl.py` Normal/Borde/Error/RN), 4 IT incluyendo spike CP-08 (`tests/integration/test_repositorio_jsonl_append_only.py::TestSpikeCP08`), 2 UT del CLI (`TestLogEventos`). Suite total **235/235** verde; cobertura global **91.93%** (`repositorio_jsonl.py` 100%, `serializacion.py` 96%, `repositorio_eventos.py` 90%).
+
+### Changed — H4 fase 1
+- `docs/quality/trazabilidad.md`: **RF-06, RN-03 y RN-07 marcados ✅** apuntando a las rutas reales de adapter + port y al spike CP-08. §5.7 actualizada con el estado real post-H4-1.
+- `interfaces/cli/run_dataset_cmd.py`: la serialización del `ResultadoDespacho` se delega a `application.serializacion.serializar_resultado_despacho` (función pública, antes era `_serializar_resultado` local del módulo).
+
 ### Added — H3 fase 3: orquestador + saturación + fallback RN-02 (RF-10 / RN-02 / RN-08, 2026-05-19)
 - Nueva capa `application/` con tres archivos:
   - [`application/tipos.py`](core-python/src/sentinel_dispatch/application/tipos.py) — value objects inmutables `ResultadoDespacho`, `EstadoSaturacion`, `CandidataRedireccion` + enum `MotivoDespacho` (`OPTIMO` / `PENALIZADO` / `SUBOPTIMO_RN02` / `SATURACION`).
