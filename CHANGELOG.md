@@ -7,6 +7,19 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H4 fase 5: calibración parcial CP-01c + ADR-0020 (2026-05-21)
+- Ejecutadas las tareas H4-cal-1 y H4-cal-2 del [ADR-0013](docs/architecture/decisions/0013-cp01c-criterio-calibrado.md):
+  - **H4-cal-1** ✅: parámetro `factor_calibracion: float = 1.0` agregado a `cargar_grafo_iv_region`. Aplica multiplicador al `speed_kph` de cada arista in-memory tras la carga (no persiste al GraphML cacheado). Default `1.0` preserva paridad RT-02 12/12 OK.
+  - **H4-cal-2** ✅: nuevo módulo experimental [`domain/routing/a_estrella_calibrado.py`](core-python/src/sentinel_dispatch/domain/routing/a_estrella_calibrado.py) con state extendido `(nodo, nodo_previo)` y `turn_penalty_s=2.0` por giro `>30°`. **No reemplaza** al A* operativo — vive separado para no romper la paridad bit-exacta con Java.
+- **H4-cal-eval** parcial: nuevo test integration `test_cp01c_calibracion_y_turn_penalty`. **Resultado medido (2026-05-21)**: 27/100 dentro de ±15 % (mediana 0.250, p75=0.367, p95=0.836). El criterio CP-01c (≥85/100) **NO se alcanza** con calibración+turn penalty solas — el 68 % de la dispersión sigue atribuida a snap-to-node (predicho por ADR-0011 §Diagnóstico).
+- [ADR-0013](docs/architecture/decisions/0013-cp01c-criterio-calibrado.md) actualizado con sección "Resultado de ejecución H4-cal-eval"; sigue `status: proposed` (criterio numérico no alcanzado).
+- [ADR-0020](docs/architecture/decisions/0020-cp01c-parcial-snap-to-edge-necesario.md) nuevo, `accepted`: congela el resultado parcial, explica por qué snap-to-edge (H5 Ruta A) es **bloqueante** para promover ADR-0013 a accepted, planifica las 3 sub-tareas H5-cal-3a/b/c con esfuerzo estimado 6-8 h.
+- Test marcado `@pytest.mark.xfail(strict=True)` con razón que apunta a ADR-0020. Cuando H5-cal-3 entregue, quitar `xfail` y promover ADR-0013 a `accepted` en el mismo PR.
+- 10 UT del A* calibrado experimental en `tests/unit/domain/routing/test_a_estrella_calibrado.py` (bearing/delta-bearing + 6 tests del algoritmo: ruta recta sin penalty, giro 90° aplica penalty, origen=destino, sin ruta, factor_hora inválido, turn_penalty=0 equivale al A* simple).
+
+### Changed — H4 fase 5
+- `docs/quality/trazabilidad.md`: nueva fila para **CP-01c 🟡 H5** con referencias a ADR-0013 y ADR-0020.
+
 ### Added — H4 fase 4: spike performance CP-12 + ADR-0019 (RN-05 / CP-12, 2026-05-21)
 - Nuevo script reproducible [`tools/spike_cp12_performance.py`](tools/spike_cp12_performance.py): genera 50 unidades sintéticas (30 Avanzada / 20 Básica) distribuidas en grilla regular sobre la bbox conurbación La Serena-Coquimbo, 1 incidente Echo en el centro, carga del grafo `coquimbo.graphml` excluida del wall-clock, 10 corridas warm-cache, reporta p50/p95/max/media + JSON crudo en `tools/_out/spike_cp12_resultado.json`.
 - **Resultado del spike (corrida 2026-05-21)**: p50 = 1884.6 ms, p95 = 1941.6 ms, max = 1975.1 ms, media = 1895.8 ms. El criterio SRS (≤ 1000 ms) **no se cumple** con A* secuencial; cada A* sobre ~16 K nodos toma ~37 ms × 50 unidades.
