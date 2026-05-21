@@ -33,6 +33,7 @@ from sentinel_dispatch.adapters.grafo_osmnx import (
     cargar_grafo_iv_region,
 )
 from sentinel_dispatch.domain.routing.a_estrella import a_estrella
+from sentinel_dispatch.domain.routing.a_estrella_calibrado import a_estrella_calibrado
 
 _log = logging.getLogger(__name__)
 
@@ -41,6 +42,15 @@ TOLERANCIA_DISTANCIA: float = 0.30
 
 MINIMO_DENTRO: int = 75
 """Cantidad mínima de pares dentro de tolerancia exigida por CP-01a."""
+
+TOLERANCIA_DURACION_CP01C: float = 0.15
+"""Tolerancia relativa de duration tras calibración (CP-01c, ADR-0013)."""
+
+MINIMO_DENTRO_CP01C: int = 85
+"""Cantidad mínima de pares dentro de tolerancia exigida por CP-01c."""
+
+FACTOR_CALIBRACION: float = 0.85
+"""Factor a aplicar al speed cascade para acercarlo al perfil OSRM (ADR-0013)."""
 
 FIXTURE_PATH: Path = Path(__file__).resolve().parents[1] / "fixtures" / "osrm_oracle.json"
 
@@ -185,4 +195,95 @@ def test_a_estrella_vs_osrm_paridad_distancia(
         f"CP-01a falla: solo {dentro}/100 pares con |Δ_distance|/d_OSRM ≤ "
         f"{TOLERANCIA_DISTANCIA}, mínimo exigido: {MINIMO_DENTRO}. "
         f"Distribución observada: {_resumen_distribucion(errores_distancia)}"
+    )
+
+
+@pytest.fixture(scope="module")
+def adapter_calibrado() -> OsmnxGrafoVial:
+    """Carga el grafo Coquimbo con `factor_calibracion=0.85` (ADR-0013)."""
+    if not GRAPHML_PATH.exists():
+        pytest.skip(f"GraphML ausente: {GRAPHML_PATH}. Generar con: make build-graph")
+    grafo = cargar_grafo_iv_region(
+        ruta_cache=GRAPHML_PATH,
+        forzar_descarga=False,
+        factor_calibracion=FACTOR_CALIBRACION,
+    )
+    return OsmnxGrafoVial(grafo=grafo)
+
+
+@pytest.mark.xfail(
+    reason=(
+        "CP-01c no alcanzable solo con calibración+turn penalty. "
+        "Spike H4-cal-eval (2026-05-21) midió 27/100 dentro de ±15% "
+        "(mediana 0.250). Snap-to-edge (H5, ADR-0016 Ruta A) es necesario "
+        "para llegar a ≥85/100. Documentado en ADR-0020."
+    ),
+    strict=True,
+)
+def test_cp01c_calibracion_y_turn_penalty(
+    fixture_osrm: dict[str, object],
+    adapter_calibrado: OsmnxGrafoVial,
+) -> None:
+    """CP-01c (ADR-0013): ≥85/100 pares con |Δ_duration|/t_OSRM ≤ 0.15.
+
+    Aplica las dos mejoras de calibración del ADR-0013:
+    - speed cascade × 0.85 (vía `cargar_grafo_iv_region(factor_calibracion=0.85)`).
+    - turn penalty 2.0 s por giro >30° (vía `a_estrella_calibrado`).
+
+    No invalida CP-01a: este test reporta duration usando un A* experimental
+    SEPARADO del A* operativo. La paridad bit-exacta con Java (RT-02) sigue
+    intacta.
+
+    **Estado actual (2026-05-21)**: `xfail` esperado hasta que snap-to-edge
+    (H5 Ruta A) reduzca los outliers atribuidos a snap (~68 % de la dispersión
+    según ADR-0011 §Diagnóstico). Ver ADR-0020.
+    """
+    pares = fixture_osrm["pares"]
+    assert isinstance(pares, list)
+    assert len(pares) == 100
+
+    errores_duracion: list[float] = []
+    for par in pares:
+        assert isinstance(par, dict)
+        origen_coord = par["origen"]
+        destino_coord = par["destino"]
+        assert isinstance(origen_coord, dict)
+        assert isinstance(destino_coord, dict)
+        t_osrm = float(par["duration_s"])
+
+        nodo_origen = adapter_calibrado.nodo_mas_cercano(
+            float(origen_coord["lat"]), float(origen_coord["lon"])
+        )
+        nodo_destino = adapter_calibrado.nodo_mas_cercano(
+            float(destino_coord["lat"]), float(destino_coord["lon"])
+        )
+
+        t_propio, _ruta = a_estrella_calibrado(
+            adapter_calibrado,
+            nodo_origen,
+            nodo_destino,
+            factor_hora=1.0,
+            factor_sirena=1.0,
+        )
+
+        if t_osrm > 0.0:
+            errores_duracion.append(abs(t_propio - t_osrm) / t_osrm)
+
+    dentro = sum(1 for e in errores_duracion if e <= TOLERANCIA_DURACION_CP01C)
+
+    _log.info(
+        "CP-01c (calibración + turn penalty): %s",
+        _resumen_distribucion(errores_duracion),
+    )
+    _log.info(
+        "Veredicto CP-01c: dentro=%d/100 (mínimo %d con tol ±%.0f%%)",
+        dentro,
+        MINIMO_DENTRO_CP01C,
+        TOLERANCIA_DURACION_CP01C * 100,
+    )
+
+    assert dentro >= MINIMO_DENTRO_CP01C, (
+        f"CP-01c falla: solo {dentro}/100 pares con |Δ_duration|/t_OSRM ≤ "
+        f"{TOLERANCIA_DURACION_CP01C}, mínimo exigido: {MINIMO_DENTRO_CP01C}. "
+        f"Distribución observada: {_resumen_distribucion(errores_duracion)}"
     )
