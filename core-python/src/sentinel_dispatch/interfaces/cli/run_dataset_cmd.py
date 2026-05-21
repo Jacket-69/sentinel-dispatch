@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import typer
 
@@ -148,6 +148,65 @@ def _serializar_resultado(resultado: ResultadoDespacho) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Helpers de borde (I/O + parseo)
+# ---------------------------------------------------------------------------
+
+
+def _validar_path_existente(path: Path, etiqueta: str) -> None:
+    """Aborta con exit code 2 si ``path`` no existe.
+
+    El substring ``"no encontrado"`` queda fijo para que los tests del CLI
+    puedan asserterlo sin acoplarse a la etiqueta concreta.
+    """
+    if not path.exists():
+        typer.secho(
+            f"Error: archivo de {etiqueta} no encontrado: {path}",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
+def _cargar_json_o_exit(path: Path, etiqueta: str) -> list[dict[str, Any]]:
+    """Lee y parsea un JSON; aborta con exit code 2 si el contenido es inválido.
+
+    El substring ``"JSON inválido"`` queda fijo (los tests lo assertean).
+    """
+    try:
+        return cast("list[dict[str, Any]]", json.loads(path.read_text(encoding="utf-8")))
+    except json.JSONDecodeError as exc:
+        typer.secho(
+            f"Error: {etiqueta} JSON inválido — {exc.msg} (línea {exc.lineno}).",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
+
+
+def _procesar_incidentes(
+    incidentes_raw: list[dict[str, Any]],
+    flota: list[Unidad],
+    grafo: OsmnxGrafoVial,
+    out_dir: Path,
+) -> int:
+    """Itera incidentes, despacha cada uno y escribe un JSONL por incidente.
+
+    Returns:
+        Número de incidentes procesados (== len(incidentes_raw) por construcción).
+    """
+    procesados = 0
+    for raw in incidentes_raw:
+        incidente = _incidente_desde_dict(raw)
+        resultado: ResultadoDespacho = despachar(incidente, flota, grafo)
+        salida = _serializar_resultado(resultado)
+
+        out_file = out_dir / f"{incidente.id}.jsonl"
+        out_file.write_text(json.dumps(salida, ensure_ascii=False) + "\n", encoding="utf-8")
+        procesados += 1
+    return procesados
+
+
+# ---------------------------------------------------------------------------
 # Comando principal
 # ---------------------------------------------------------------------------
 
@@ -199,78 +258,24 @@ def run_dataset(
     - **2** si alguno de los archivos de entrada no existe o es JSON inválido.
     - **1** si ocurre un error inesperado durante el procesamiento.
     """
-    # --- Validar paths de entrada ---
-    if not incidentes_path.exists():
-        typer.secho(
-            f"Error: archivo de incidentes no encontrado: {incidentes_path}",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(code=2)
+    _validar_path_existente(incidentes_path, etiqueta="incidentes")
+    _validar_path_existente(unidades_path, etiqueta="unidades")
+    _validar_path_existente(graph_path, etiqueta="grafo")
 
-    if not unidades_path.exists():
-        typer.secho(
-            f"Error: archivo de unidades no encontrado: {unidades_path}",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(code=2)
+    incidentes_raw = _cargar_json_o_exit(incidentes_path, etiqueta="incidentes")
+    unidades_raw = _cargar_json_o_exit(unidades_path, etiqueta="unidades")
 
-    if not graph_path.exists():
-        typer.secho(
-            f"Error: archivo de grafo no encontrado: {graph_path}",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    # --- Parsear JSON de entrada ---
-    try:
-        incidentes_raw: list[dict[str, Any]] = json.loads(
-            incidentes_path.read_text(encoding="utf-8")
-        )
-    except json.JSONDecodeError as exc:
-        typer.secho(
-            f"Error: incidentes JSON inválido — {exc.msg} (línea {exc.lineno}).",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(code=2) from exc
-
-    try:
-        unidades_raw: list[dict[str, Any]] = json.loads(unidades_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        typer.secho(
-            f"Error: unidades JSON inválido — {exc.msg} (línea {exc.lineno}).",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(code=2) from exc
-
-    # --- Preparar salida ---
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not incidentes_raw:
         typer.echo("Dataset vacío; no se generaron archivos de salida.")
         raise typer.Exit(code=0)
 
-    # --- Cargar grafo ---
     grafo_nx = cargar_grafo_iv_region(ruta_cache=graph_path)
     grafo = OsmnxGrafoVial(grafo=grafo_nx)
-
-    # --- Construir flota ---
     flota = [_unidad_desde_dict(u) for u in unidades_raw]
 
-    # --- Procesar cada incidente ---
-    procesados = 0
-    for raw in incidentes_raw:
-        incidente = _incidente_desde_dict(raw)
-        resultado: ResultadoDespacho = despachar(incidente, flota, grafo)
-        salida = _serializar_resultado(resultado)
-
-        out_file = out_dir / f"{incidente.id}.jsonl"
-        out_file.write_text(json.dumps(salida, ensure_ascii=False) + "\n", encoding="utf-8")
-        procesados += 1
+    procesados = _procesar_incidentes(incidentes_raw, flota, grafo, out_dir)
 
     typer.echo(f"Procesados {procesados} incidente(s). Salida en: {out_dir}")
     raise typer.Exit(code=0)
