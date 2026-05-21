@@ -7,6 +7,15 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H4 fase 6: FTR-03 — cierre formal de H4 (2026-05-21)
+- Nueva acta [`docs/quality/ftr/0003-h4-cierre.md`](docs/quality/ftr/0003-h4-cierre.md): cierre técnico formal de las 5 fases de H4 (8235524 → 45a15fb). Modalidad auto-revisión documentada (Fernando Godoy no disponible para la sesión sincrónica; el DoD lo permite).
+- **Veredicto**: H4 ✅ APROBADO. 9/12 RFs cerrados (75 %). Ningún hallazgo crítico ni mayor. 7 hallazgos menores (defectos/mejoras/preguntas), 2 resueltos en el mismo PR de la FTR (H-05 comentario inline al xfail, H-03 trazabilidad RF-12 con nota de semántica v1), el resto en backlog post-H5.
+- Métricas al cierre: suite **257/257** + 1 xfail intencional, cobertura **90.33 %**, CI `compare` **12/12 OK bit-exacto**, lint+typecheck verde, 3 ADRs nuevos (0018, 0019, 0020) + ADR-0013 actualizado.
+
+### Changed — H4 fase 6
+- `tests/integration/test_routing_vs_osrm.py`: comentario inline al `xfail strict=True` documentando la decisión y referenciando FTR-0003 §H-05.
+- `docs/quality/trazabilidad.md`: nota a RF-12 explicitando "semántica v1: sin evolución temporal entre incidentes" (FTR-0003 §H-03).
+
 ### Added — H4 fase 5: calibración parcial CP-01c + ADR-0020 (2026-05-21)
 - Ejecutadas las tareas H4-cal-1 y H4-cal-2 del [ADR-0013](docs/architecture/decisions/0013-cp01c-criterio-calibrado.md):
   - **H4-cal-1** ✅: parámetro `factor_calibracion: float = 1.0` agregado a `cargar_grafo_iv_region`. Aplica multiplicador al `speed_kph` de cada arista in-memory tras la carga (no persiste al GraphML cacheado). Default `1.0` preserva paridad RT-02 12/12 OK.

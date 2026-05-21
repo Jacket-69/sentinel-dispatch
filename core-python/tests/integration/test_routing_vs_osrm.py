@@ -211,6 +211,12 @@ def adapter_calibrado() -> OsmnxGrafoVial:
     return OsmnxGrafoVial(grafo=grafo)
 
 
+# NOTA mantenedor: `strict=True` es intencional. Si este test pasa
+# inesperadamente (p. ej. por mejoras incidentales en otro módulo), eso es
+# señal de que CP-01c está cerrado y debe disparar la promoción de
+# ADR-0013 a `accepted` + remoción del xfail. No "arreglar" el test
+# convirtiéndolo en xfail no-strict — la idea es que el bypass sea
+# explícito y vinculado a la decisión documental. Ver FTR-0003 §H-05.
 @pytest.mark.xfail(
     reason=(
         "CP-01c no alcanzable solo con calibración+turn penalty. "
