@@ -168,9 +168,7 @@ def _resultado_exitoso(
 ) -> ResultadoDespacho:
     """Camino OPTIMO o PENALIZADO: argmin del dominio dio ganadora finita."""
     motivo = (
-        MotivoDespacho.PENALIZADO
-        if costo_elegida.penalizacion > 0.0
-        else MotivoDespacho.OPTIMO
+        MotivoDespacho.PENALIZADO if costo_elegida.penalizacion > 0.0 else MotivoDespacho.OPTIMO
     )
     return ResultadoDespacho(
         incidente=incidente,
@@ -282,6 +280,4 @@ def despachar(
                 incidente, elegida, candidato, seleccion.candidatos, rutas
             )
 
-    return _resultado_saturacion(
-        incidente, flota_lista, seleccion.candidatos, progreso_por_unidad
-    )
+    return _resultado_saturacion(incidente, flota_lista, seleccion.candidatos, progreso_por_unidad)
