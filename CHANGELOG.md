@@ -7,6 +7,17 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H4 fase 3: modo simulación (RF-12, 2026-05-21)
+- Nuevo módulo [`application/simulacion.py`](core-python/src/sentinel_dispatch/application/simulacion.py) con value object `ReporteSimulacion` (dataclass frozen+slots) que agrega: `incidentes_procesados`, tupla de `ResultadoDespacho`, porcentajes por motivo (`pct_optimo`, `pct_penalizado`, `pct_suboptimo_rn02`, `pct_saturacion`), ETA media y ETA p95.
+- Función `simular(incidentes, flota_ficticia, grafo, *, repositorio_eventos=None, factor_hora=1.0, factor_sirena=1.0) → ReporteSimulacion`. **Semántica v1**: sin evolución temporal entre incidentes (cada uno ve la flota inicial). Determinístico: el resultado depende sólo de los inputs.
+- Persistencia **opt-in**: por default NO escribe al log canónico (modo simulación ≠ operativo). Si se provee `repositorio_eventos`, se persisten eventos `despacho_creado` con `despacho_id` prefijado `SD-SIM-` para distinguirlos de despachos operativos.
+- Nuevo subcomando CLI [`interfaces/cli/simular_cmd.py`](core-python/src/sentinel_dispatch/interfaces/cli/simular_cmd.py): `sentinel simular --flota --incidentes --graph --out [--persistir-en]`. El reporte JSON de salida incluye campo `"modo": "simulacion"` como marca explícita.
+- Tests: **7 nuevos** verdes — Normal (2): resultados+métricas, ausencia de evolución temporal · Borde (2): lista vacía, flota vacía=100% saturación · ReglasNegocio (2): default no escribe, con repo escribe N eventos al archivo separado · Métricas (1): pcts suman 100.0. Suite total **256/256** verde; cobertura global **90.60 %**.
+
+### Changed — H4 fase 3
+- `docs/quality/trazabilidad.md`: **RF-12 marcado ✅** apuntando a `application/simulacion.py` + `interfaces/cli/simular_cmd.py`.
+- `interfaces/cli/app.py`: registro del subcomando `simular`.
+
 ### Added — H4 fase 2: exportador CSV/JSON (RF-11, 2026-05-21)
 - Nuevo adapter [`adapters/exportador.py`](core-python/src/sentinel_dispatch/adapters/exportador.py): funciones puras `exportar_a_csv(eventos, path)` y `exportar_a_json(eventos, path)`. CSV con flatten de `payload_*` (e.g. `payload_costo_total`) y encoding `utf-8-sig` (BOM para que Excel español abra correctamente). JSON como array indentado sin BOM. Helper `_aplanar_dict(d, prefijo)` aplana dicts recursivamente; listas (e.g. `ruta`) se serializan como JSON string en una sola celda.
 - Nuevo subcomando CLI [`interfaces/cli/export_cmd.py`](core-python/src/sentinel_dispatch/interfaces/cli/export_cmd.py): `sentinel export --formato {csv,json} --in eventos.jsonl --out reporte.{csv,json}`. Enum `FormatoExport(csv|json)` para validación de argumento. Exit 0 en éxito, 2 si `--in` no existe o el JSONL es corrupto.
