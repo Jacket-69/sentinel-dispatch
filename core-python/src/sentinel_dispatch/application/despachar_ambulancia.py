@@ -70,7 +70,7 @@ _CATEGORIAS_CRITICAS_RN02: frozenset[CategoriaMPDS] = frozenset(
 """Categorías MPDS sobre las que opera el fallback RN-02.
 
 Son las que la tabla de penalización marca como ``inf`` para Básica.
-Coquí está la diferencia con el dominio: el dominio reporta ``inf``,
+Aquí está la diferencia con el dominio: el dominio reporta ``inf``,
 la política RN-02 decide qué hacer con ese ``inf`` cuando no hay
 alternativa.
 """
