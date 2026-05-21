@@ -49,6 +49,7 @@ from sentinel_dispatch.domain.dispatch.seleccion import (
     seleccionar_unidad,
 )
 from sentinel_dispatch.domain.dispatch.tipos import (
+    CostoDespacho,
     EstadoUnidad,
     TipoUnidad,
 )
@@ -158,6 +159,77 @@ def _fallback_rn02_basica(
     )
 
 
+def _resultado_exitoso(
+    incidente: Incidente,
+    elegida: Unidad,
+    costo_elegida: CostoDespacho,
+    candidatos: tuple[CandidatoDespacho, ...],
+    rutas: Mapping[str, list[int]],
+) -> ResultadoDespacho:
+    """Camino OPTIMO o PENALIZADO: argmin del dominio dio ganadora finita."""
+    motivo = (
+        MotivoDespacho.PENALIZADO
+        if costo_elegida.penalizacion > 0.0
+        else MotivoDespacho.OPTIMO
+    )
+    return ResultadoDespacho(
+        incidente=incidente,
+        elegida=elegida,
+        costo_elegida=costo_elegida,
+        motivo=motivo,
+        despacho_suboptimo=False,
+        candidatos=candidatos,
+        saturacion=None,
+        ruta_nodos=tuple(rutas.get(elegida.id, [])),
+    )
+
+
+def _resultado_fallback_rn02(
+    incidente: Incidente,
+    elegida: Unidad,
+    candidato: CandidatoDespacho,
+    candidatos: tuple[CandidatoDespacho, ...],
+    rutas: Mapping[str, list[int]],
+) -> ResultadoDespacho:
+    """Camino SUBOPTIMO_RN02: solo Básicas disponibles para Echo/Delta."""
+    _log.warning(
+        "RN-02 fallback aplicado: %s (Básica) → %s (%s); despacho_suboptimo=True",
+        elegida.id,
+        incidente.id,
+        incidente.categoria_mpds.value,
+    )
+    return ResultadoDespacho(
+        incidente=incidente,
+        elegida=elegida,
+        costo_elegida=candidato.costo,
+        motivo=MotivoDespacho.SUBOPTIMO_RN02,
+        despacho_suboptimo=True,
+        candidatos=candidatos,
+        saturacion=None,
+        ruta_nodos=tuple(rutas.get(elegida.id, [])),
+    )
+
+
+def _resultado_saturacion(
+    incidente: Incidente,
+    flota_lista: list[Unidad],
+    candidatos: tuple[CandidatoDespacho, ...],
+    progreso_por_unidad: Mapping[str, float] | None,
+) -> ResultadoDespacho:
+    """Camino SATURACION: ninguna unidad pudo ser despachada (RN-08, CP-10)."""
+    estado_sat: EstadoSaturacion = detectar_saturacion(flota_lista, progreso_por_unidad)
+    return ResultadoDespacho(
+        incidente=incidente,
+        elegida=None,
+        costo_elegida=None,
+        motivo=MotivoDespacho.SATURACION,
+        despacho_suboptimo=False,
+        candidatos=candidatos,
+        saturacion=estado_sat,
+        ruta_nodos=(),
+    )
+
+
 def despachar(
     incidente: Incidente,
     flota: Iterable[Unidad],
@@ -198,51 +270,18 @@ def despachar(
     seleccion = seleccionar_unidad(disponibles, incidente, tiempos)
 
     if seleccion.elegida is not None and seleccion.costo_elegida is not None:
-        motivo = (
-            MotivoDespacho.PENALIZADO
-            if seleccion.costo_elegida.penalizacion > 0.0
-            else MotivoDespacho.OPTIMO
-        )
-        return ResultadoDespacho(
-            incidente=incidente,
-            elegida=seleccion.elegida,
-            costo_elegida=seleccion.costo_elegida,
-            motivo=motivo,
-            despacho_suboptimo=False,
-            candidatos=seleccion.candidatos,
-            saturacion=None,
-            ruta_nodos=tuple(rutas.get(seleccion.elegida.id, [])),
+        return _resultado_exitoso(
+            incidente, seleccion.elegida, seleccion.costo_elegida, seleccion.candidatos, rutas
         )
 
     if disponibles:
         fallback = _fallback_rn02_basica(disponibles, incidente, tiempos)
         if fallback is not None:
             elegida, candidato = fallback
-            _log.warning(
-                "RN-02 fallback aplicado: %s (Básica) → %s (%s); despacho_suboptimo=True",
-                elegida.id,
-                incidente.id,
-                incidente.categoria_mpds.value,
-            )
-            return ResultadoDespacho(
-                incidente=incidente,
-                elegida=elegida,
-                costo_elegida=candidato.costo,
-                motivo=MotivoDespacho.SUBOPTIMO_RN02,
-                despacho_suboptimo=True,
-                candidatos=seleccion.candidatos,
-                saturacion=None,
-                ruta_nodos=tuple(rutas.get(elegida.id, [])),
+            return _resultado_fallback_rn02(
+                incidente, elegida, candidato, seleccion.candidatos, rutas
             )
 
-    estado_sat: EstadoSaturacion = detectar_saturacion(flota_lista, progreso_por_unidad)
-    return ResultadoDespacho(
-        incidente=incidente,
-        elegida=None,
-        costo_elegida=None,
-        motivo=MotivoDespacho.SATURACION,
-        despacho_suboptimo=False,
-        candidatos=seleccion.candidatos,
-        saturacion=estado_sat,
-        ruta_nodos=(),
+    return _resultado_saturacion(
+        incidente, flota_lista, seleccion.candidatos, progreso_por_unidad
     )
