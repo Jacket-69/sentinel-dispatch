@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import typer
 
@@ -173,7 +173,7 @@ def _cargar_json_o_exit(path: Path, etiqueta: str) -> list[dict[str, Any]]:
     El substring ``"JSON inválido"`` queda fijo (los tests lo assertean).
     """
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast("list[dict[str, Any]]", json.loads(path.read_text(encoding="utf-8")))
     except json.JSONDecodeError as exc:
         typer.secho(
             f"Error: {etiqueta} JSON inválido — {exc.msg} (línea {exc.lineno}).",

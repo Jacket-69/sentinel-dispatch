@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import typer
 from rich.console import Console
@@ -67,7 +67,7 @@ def _parsear_json_inline_o_exit(json_input: str) -> dict[str, Any]:
     El substring ``"JSON inválido"`` queda fijo (los tests lo assertean).
     """
     try:
-        return json.loads(json_input)
+        return cast("dict[str, Any]", json.loads(json_input))
     except json.JSONDecodeError as exc:
         typer.secho(
             f"Error: JSON inválido — {exc.msg} (línea {exc.lineno}, col {exc.colno}).",
