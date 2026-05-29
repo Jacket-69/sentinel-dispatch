@@ -6,7 +6,11 @@ API pública del módulo. Detalle del algoritmo y la heurística en
 """
 
 from sentinel_dispatch.domain.routing.a_estrella import a_estrella
-from sentinel_dispatch.domain.routing.grafo_vial import GrafoVial
+from sentinel_dispatch.domain.routing.geometria import proyectar_en_polilinea
+from sentinel_dispatch.domain.routing.grafo_vial import (
+    GrafoVial,
+    GrafoVialConSnapEdge,
+)
 from sentinel_dispatch.domain.routing.heuristica import (
     V_MAX_KMH,
     V_MAX_MS,
@@ -18,6 +22,7 @@ from sentinel_dispatch.domain.routing.tipos import (
     NodoFueraDeRangoError,
     NodoId,
     NoRutaDisponibleError,
+    PosicionEnArista,
 )
 
 __all__ = [
@@ -25,10 +30,13 @@ __all__ = [
     "V_MAX_MS",
     "Arista",
     "GrafoVial",
+    "GrafoVialConSnapEdge",
     "NoRutaDisponibleError",
     "NodoFueraDeRangoError",
     "NodoId",
+    "PosicionEnArista",
     "a_estrella",
     "haversine_m",
     "haversine_segundos",
+    "proyectar_en_polilinea",
 ]
