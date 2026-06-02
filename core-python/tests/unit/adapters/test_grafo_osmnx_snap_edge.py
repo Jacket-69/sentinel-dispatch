@@ -33,9 +33,7 @@ def _grafo_curvo() -> nx.MultiDiGraph:
     g.add_node(2, y=-29.9000, x=-71.2400)
     g.add_node(3, y=-29.9100, x=-71.2400)
     # LineString en orden OSMnx (lon, lat): vértice medio desviado al sur.
-    geom = LineString(
-        [(-71.2500, -29.9000), (-71.2450, -29.9030), (-71.2400, -29.9000)]
-    )
+    geom = LineString([(-71.2500, -29.9000), (-71.2450, -29.9030), (-71.2400, -29.9000)])
     g.add_edge(1, 2, length=970.0, speed_kph=50.0, geometry=geom)
     g.add_edge(2, 3, length=1113.0, speed_kph=50.0)
     return g

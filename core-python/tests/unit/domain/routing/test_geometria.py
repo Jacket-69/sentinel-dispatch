@@ -63,9 +63,7 @@ def test_proyeccion_sobre_polilinea_en_codo() -> None:
     # Polilínea en "L": A → B (este) → C (sur de B).
     c = (-29.9100, -71.2400)
     # Punto cerca del codo B: debe proyectar muy cerca de B, fracción ~0.5.
-    fraccion, lat_p, lon_p, dist = proyectar_en_polilinea(
-        -29.9001, -71.2401, [_A, _B, c]
-    )
+    fraccion, lat_p, lon_p, dist = proyectar_en_polilinea(-29.9001, -71.2401, [_A, _B, c])
     assert 0.45 <= fraccion <= 0.55
     assert lat_p == pytest.approx(_B[0], abs=1e-3)
     assert lon_p == pytest.approx(_B[1], abs=1e-3)

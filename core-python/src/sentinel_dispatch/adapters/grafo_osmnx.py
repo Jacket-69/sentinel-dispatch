@@ -312,9 +312,7 @@ class OsmnxGrafoVial:
         mejor: PosicionEnArista | None = None
         for u, v, data in self._aristas_candidatas(nodo_ancla):
             vertices = self._vertices_latlon(u, v, data)
-            fraccion, lat_proj, lon_proj, distancia = proyectar_en_polilinea(
-                lat, lon, vertices
-            )
+            fraccion, lat_proj, lon_proj, distancia = proyectar_en_polilinea(lat, lon, vertices)
             if mejor is None or distancia < mejor.distancia_snap_m:
                 mejor = PosicionEnArista(
                     arista=self._arista_desde_data(u, v, data),

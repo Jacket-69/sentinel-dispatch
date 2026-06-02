@@ -88,9 +88,7 @@ def test_misma_arista_destino_adelante(grafo_lineal: GrafoFake) -> None:
     """Origen f=0.25 y destino f=0.75 sobre 1→2: camino directo, 500 m → 50 s."""
     pos_o = _pos(grafo_lineal, 1, 2, fraccion=0.25)
     pos_d = _pos(grafo_lineal, 1, 2, fraccion=0.75)
-    eta, ruta = a_estrella_snap_edge(
-        grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0
-    )
+    eta, ruta = a_estrella_snap_edge(grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0)
     distancia_m = 500.0  # (0.75 - 0.25) * 1000
     esperado_s = distancia_m / (V_KMH * 1000 / 3600)
     assert eta == pytest.approx(esperado_s, rel=1e-6)
@@ -102,9 +100,7 @@ def test_aristas_adyacentes_pasa_por_nodo_2(grafo_lineal: GrafoFake) -> None:
     """Origen f=0.5 en 1→2, destino f=0.5 en 2→3: 1000 m por nodo 2 → 100 s."""
     pos_o = _pos(grafo_lineal, 1, 2, fraccion=0.5)
     pos_d = _pos(grafo_lineal, 2, 3, fraccion=0.5)
-    eta, ruta = a_estrella_snap_edge(
-        grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0
-    )
+    eta, ruta = a_estrella_snap_edge(grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0)
     # O → nodo2 (500 m) + nodo2 → D (500 m) = 1000 m
     distancia_m = 500.0 + 500.0
     esperado_s = distancia_m / (V_KMH * 1000 / 3600)
@@ -122,9 +118,7 @@ def test_sentido_inverso_destino_antes_que_origen(grafo_lineal: GrafoFake) -> No
     """
     pos_o = _pos(grafo_lineal, 1, 2, fraccion=0.75)
     pos_d = _pos(grafo_lineal, 1, 2, fraccion=0.25)
-    eta, ruta = a_estrella_snap_edge(
-        grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0
-    )
+    eta, ruta = a_estrella_snap_edge(grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0)
     # O→nodo2 (250 m) + nodo2→D_virtual (750 m, arista reversa) = 1000 m
     distancia_m = 250.0 + 750.0
     esperado_s = distancia_m / (V_KMH * 1000 / 3600)
@@ -162,9 +156,7 @@ def test_extremos_en_nodo_recorre_completo(grafo_lineal: GrafoFake) -> None:
     """Origen f=0.0 en 1→2, destino f=1.0 en 2→3: recorre 1→2→3 = 2000 m → 200 s."""
     pos_o = _pos(grafo_lineal, 1, 2, fraccion=0.0)
     pos_d = _pos(grafo_lineal, 2, 3, fraccion=1.0)
-    eta, ruta = a_estrella_snap_edge(
-        grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0
-    )
+    eta, ruta = a_estrella_snap_edge(grafo_lineal, pos_o, pos_d, turn_penalty_s=0.0)
     distancia_m = 2000.0
     esperado_s = distancia_m / (V_KMH * 1000 / 3600)
     assert eta == pytest.approx(esperado_s, rel=1e-6)
