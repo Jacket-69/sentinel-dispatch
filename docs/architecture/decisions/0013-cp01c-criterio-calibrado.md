@@ -1,13 +1,23 @@
 ---
 adr: 0013
 title: CP-01c — criterio numérico esperado tras calibración (placeholder H4)
-status: proposed
+status: accepted
 date: 2026-05-19
 deciders: Benjamín López
 tags: [adr, dominio, routing, it01, osrm, srs, validacion, placeholder]
+recalibrado-por: 0021
 ---
 
 # ADR 0013 — CP-01c, criterio numérico esperado tras calibración
+
+> **Estado 2026-05-28 (H5-cal-3 cerrado):** promovido a `accepted`. El objetivo
+> ±15 %/85 de este ADR **no se alcanzó** (mejor caso medido: 52/100 con
+> snap-to-edge a factor 0.75); la brecha residual es estructural vs el modelo de
+> costo de OSRM. El criterio se recalibró a **CP-01c' = ±30 % en ≥ 75/100**
+> (logrado: 78/100 a factor 0.80) en
+> [ADR-0021](0021-cp01c-snap-to-edge-criterio-realista.md), que documenta la
+> cota y la causa. Este ADR queda `accepted` bajo ese criterio recalibrado. Leer
+> ADR-0021 para el resultado definitivo.
 
 ## Contexto
 

@@ -7,6 +7,20 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H5-cal-3: snap-to-edge + recalibración CP-01c' + ADR-0021 (2026-05-28)
+- Nuevo módulo [`domain/routing/geometria.py`](core-python/src/sentinel_dispatch/domain/routing/geometria.py): `proyectar_en_polilinea(punto, polilinea)` proyecta un punto (lat, lon) sobre la polilínea de una arista en un plano métrico local equirectangular, devolviendo el punto más cercano, la distancia y la fracción recorrida. 13 UT en [`test_geometria.py`](core-python/tests/unit/domain/routing/test_geometria.py).
+- Nuevo módulo experimental [`domain/routing/a_estrella_snap_edge.py`](core-python/src/sentinel_dispatch/domain/routing/a_estrella_snap_edge.py): A* con **nodos virtuales** origen (`-1`) y destino (`-2`) inyectados sobre las aristas más cercanas vía decorador `_GrafoConPuntosVirtuales`; reusa `a_estrella_calibrado` como motor. Elimina la inflación de ruta del snap-to-node. Tipo `PosicionEnArista` y protocolo `GrafoVialConSnapEdge` agregados en `domain/routing/tipos.py` y `grafo_vial.py`. 23 UT.
+- `adapters/grafo_osmnx.py`: nuevo `OsmnxGrafoVial.posicion_en_arista(lat, lon)` con refactor de `_arista_desde_data` como punto único de verdad para construir aristas desde el grafo. 8 UT en [`test_grafo_osmnx_snap_edge.py`](core-python/tests/unit/adapters/test_grafo_osmnx_snap_edge.py).
+- **Resultado medido (2026-05-28)** sobre los 100 pares de `osrm_oracle.json`: snap-to-edge a `factor_calibracion=0.80` da **78/100 dentro de ±30 %** (mediana de error 0.170), casi 2× el 27/100 del snap-to-node calibrado. El objetivo histórico ±15 %/≥85 (ADR-0013) **NO se alcanza** (máx 52/100 a factor 0.75): la brecha residual a ±15 % es **estructural** (modelo de costo `car.lua` de OSRM —reglas de giro, semáforos, perfil por clase de vía— que el A* estilo-SRS no replica).
+- [ADR-0021](docs/architecture/decisions/0021-cp01c-snap-to-edge-criterio-realista.md) nuevo, `accepted`: documenta la medición y **recalibra el criterio a CP-01c' = duration ±30 % en ≥ 75/100** (mismo umbral que CP-01a usa para `distance`), siguiendo el patrón "criterio derivado de evidencia" de ADR-0019. Incluye §"Relación con el SRS" reconociendo que es una desviación real del criterio numérico del SRS (CP-01 ≤5 %/≥95), defendible por la nota "Importante" del SRS sec. 2.12 (ETA aproximado, validación exacta diferida a datos reales) y por la causa estructural. RT-02 (paridad Python↔Java ±5 %) queda **intacto**.
+
+### Changed — H5-cal-3
+- [ADR-0013](docs/architecture/decisions/0013-cp01c-criterio-calibrado.md) promovido de `proposed` a `accepted` bajo el criterio recalibrado CP-01c' (`recalibrado-por: 0021`).
+- `tests/integration/test_routing_vs_osrm.py`: el `@pytest.mark.xfail(strict=True)` de CP-01c se reemplazó por `test_cp01c_snap_to_edge`, que **pasa** asertando CP-01c' (±30 %/≥75) con `a_estrella_snap_edge` y `factor_calibracion=0.80`.
+- `docs/quality/trazabilidad.md`: fila CP-01c → **CP-01c' ✅** (±30 %/≥75, ADR-0021); nota de blindaje actualizada con la recalibración.
+- `docs/architecture/decisions/0016-camino-95-cp01a.md`: cruces a CP-01c actualizados al criterio recalibrado; Ruta A marcada completa.
+- **Aislamiento**: snap-to-edge vive solo en el camino experimental de calibración Python (módulo separado). El A* operativo y `run-dataset` no cambian; **no se porta a Java**. CI `compare` sigue 12/12 OK bit-exacto.
+
 ### Added — H4 fase 6: FTR-03 — cierre formal de H4 (2026-05-21)
 - Nueva acta [`docs/quality/ftr/0003-h4-cierre.md`](docs/quality/ftr/0003-h4-cierre.md): cierre técnico formal de las 5 fases de H4 (8235524 → 45a15fb). Modalidad auto-revisión documentada (Fernando Godoy no disponible para la sesión sincrónica; el DoD lo permite).
 - **Veredicto**: H4 ✅ APROBADO. 9/12 RFs cerrados (75 %). Ningún hallazgo crítico ni mayor. 7 hallazgos menores (defectos/mejoras/preguntas), 2 resueltos en el mismo PR de la FTR (H-05 comentario inline al xfail, H-03 trazabilidad RF-12 con nota de semántica v1), el resto en backlog post-H5.

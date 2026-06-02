@@ -26,7 +26,7 @@ La pregunta natural en la defensa GCS y en revisiones posteriores es:
 Los ADRs previos cubren parcialmente la respuesta:
 
 - [ADR-0011](0011-reformulacion-criterio-it01.md) §"Decisión a futuro" lista tres mejoras incrementales al A* (calibración, turn penalties, snap-to-edge) como condicionales a hallazgos en H4/H5.
-- [ADR-0013](0013-cp01c-criterio-calibrado.md) formaliza dos de esas mejoras como tareas H4-cal-1/2/eval, con criterio CP-01c (duration ±15% en ≥85/100).
+- [ADR-0013](0013-cp01c-criterio-calibrado.md) formaliza dos de esas mejoras como tareas H4-cal-1/2/eval, con criterio CP-01c (duration ±15% en ≥85/100; recalibrado a CP-01c' ±30%/≥75 por [ADR-0021](0021-cp01c-snap-to-edge-criterio-realista.md) tras medir snap-to-edge).
 
 Pero ninguno de los dos:
 
@@ -158,7 +158,7 @@ Generar un fixture nuevo `tests/fixtures/osrm_oracle_v3.json` con mayor diversid
 ### Neutras
 
 - ADR queda en `status: proposed` hasta que H5-eval-95 se ejecute. Las tareas individuales pueden completarse y marcarse antes (cada tarea actualiza este ADR con su estado).
-- Este ADR **complementa** ADR-0013 (no lo supersede). ADR-0013 sigue siendo válido para el criterio CP-01c (duration ±15% en ≥85/100); ADR-0016 agrega el criterio CP-01a-95 que es distinto.
+- Este ADR **complementa** ADR-0013 (no lo supersede). ADR-0013 fijó el criterio CP-01c (duration ±15% en ≥85/100), **recalibrado a CP-01c' (±30%/≥75) por [ADR-0021](0021-cp01c-snap-to-edge-criterio-realista.md)** tras medir snap-to-edge (objetivo histórico inalcanzable por brecha estructural vs `car.lua`); ADR-0016 agrega el criterio CP-01a-95, que es distinto e independiente. La Ruta A (calibración + snap-to-edge) está completa y medida; la Ruta B (fixture v3 N≥300) sigue pendiente en H5-fix.
 
 ## Tareas explícitas y trazabilidad
 

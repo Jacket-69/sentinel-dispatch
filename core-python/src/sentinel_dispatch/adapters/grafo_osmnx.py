@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import networkx as nx  # noqa: TC002 — usado en runtime como campo del dataclass
 import osmnx as ox
@@ -25,11 +25,13 @@ from sentinel_dispatch.domain.incidente.validacion import (
     CoordenadasFueraDeRangoError,
     validar_coordenadas_iv_region,
 )
+from sentinel_dispatch.domain.routing.geometria import proyectar_en_polilinea
 from sentinel_dispatch.domain.routing.heuristica import haversine_m
 from sentinel_dispatch.domain.routing.tipos import (
     Arista,
     NodoFueraDeRangoError,
     NodoId,
+    PosicionEnArista,
 )
 
 if TYPE_CHECKING:
@@ -193,31 +195,41 @@ class OsmnxGrafoVial:
         Haversine sobre los endpoints y se loggea una advertencia.
         """
         for u, v, _key, data in self.grafo.out_edges(nodo, keys=True, data=True):
-            velocidad_kmh: float = data.get("speed_kph", MAXSPEED_FALLBACK_KMH)
+            yield self._arista_desde_data(u, v, data)
 
-            longitud_raw = data.get("length")
-            if longitud_raw is not None:
-                longitud_m: float = float(longitud_raw)
-            else:
-                # Fallback: Haversine sobre los endpoints del segmento.
-                # Ocurre solo en grafos sintéticos o datos corruptos.
-                nodos = self.grafo.nodes
-                lat_u, lon_u = float(nodos[u]["y"]), float(nodos[u]["x"])
-                lat_v, lon_v = float(nodos[v]["y"]), float(nodos[v]["x"])
-                longitud_m = haversine_m(lat_u, lon_u, lat_v, lon_v)
-                _log.warning(
-                    "Arista (%s -> %s) sin atributo 'length'; longitud calculada por Haversine: %.1f m",
-                    u,
-                    v,
-                    longitud_m,
-                )
+    def _arista_desde_data(self, u: int, v: int, data: Any) -> Arista:
+        """Construye la :class:`Arista` de dominio desde los atributos OSMnx.
 
-            yield Arista(
-                origen=NodoId(u),
-                destino=NodoId(v),
-                longitud_m=longitud_m,
-                velocidad_efectiva_kmh=velocidad_kmh,
+        Resuelve ``speed_kph`` (con :data:`MAXSPEED_FALLBACK_KMH` si falta) y
+        ``length`` (con fallback Haversine sobre los endpoints si falta, caso
+        de grafos sintéticos o datos corruptos). Punto único de verdad usado
+        por :meth:`vecinos` y :meth:`posicion_en_arista`.
+        """
+        velocidad_kmh: float = data.get("speed_kph", MAXSPEED_FALLBACK_KMH)
+
+        longitud_raw = data.get("length")
+        if longitud_raw is not None:
+            longitud_m: float = float(longitud_raw)
+        else:
+            # Fallback: Haversine sobre los endpoints del segmento.
+            # Ocurre solo en grafos sintéticos o datos corruptos.
+            nodos = self.grafo.nodes
+            lat_u, lon_u = float(nodos[u]["y"]), float(nodos[u]["x"])
+            lat_v, lon_v = float(nodos[v]["y"]), float(nodos[v]["x"])
+            longitud_m = haversine_m(lat_u, lon_u, lat_v, lon_v)
+            _log.warning(
+                "Arista (%s -> %s) sin atributo 'length'; longitud calculada por Haversine: %.1f m",
+                u,
+                v,
+                longitud_m,
             )
+
+        return Arista(
+            origen=NodoId(u),
+            destino=NodoId(v),
+            longitud_m=longitud_m,
+            velocidad_efectiva_kmh=velocidad_kmh,
+        )
 
     def coordenadas(self, nodo: NodoId) -> tuple[float, float]:
         """Coordenadas geográficas del nodo en grados decimales.
@@ -266,3 +278,95 @@ class OsmnxGrafoVial:
         """
         lat_nodo, lon_nodo = self.coordenadas(nodo)
         return haversine_m(lat, lon, lat_nodo, lon_nodo)
+
+    # -----------------------------------------------------------------------
+    # Snap-to-edge (GrafoVialConSnapEdge — ADR-0020 §H5-cal-3a)
+    # -----------------------------------------------------------------------
+
+    def posicion_en_arista(self, lat: float, lon: float) -> PosicionEnArista:
+        """Proyecta ``(lat, lon)`` sobre la arista vial más cercana.
+
+        Snap-to-edge: a diferencia de :meth:`nodo_mas_cercano`, no salta al
+        nodo OSM más próximo sino que proyecta el punto sobre la geometría de
+        la arista más cercana, reportando la fracción a lo largo de ella
+        (ADR-0020). Esto replica el snap de OSRM y elimina el sesgo de
+        snap-to-node que domina la dispersión de ``duration`` (CP-01c).
+
+        Estrategia de búsqueda: se ancla en :meth:`nodo_mas_cercano` (que
+        valida el bbox RN-01) y se consideran como candidatas las aristas
+        incidentes a ese nodo y a sus vecinos directos. En una malla urbana
+        densa la arista más cercana es casi siempre incidente al nodo más
+        cercano o a uno adyacente; acotar así evita proyectar sobre las 42 k
+        aristas del grafo manteniendo la precisión. Sobre cada candidata se
+        proyecta con :func:`proyectar_en_polilinea` (usando la geometría
+        curva ``geometry`` si existe, o el segmento recto entre endpoints) y
+        se elige la de menor distancia de snap.
+
+        Raises:
+            NodoFueraDeRangoError: si ``(lat, lon)`` cae fuera del bbox
+                (delegado a :meth:`nodo_mas_cercano`) o si el nodo ancla no
+                tiene aristas incidentes.
+        """
+        nodo_ancla = self.nodo_mas_cercano(lat, lon)
+
+        mejor: PosicionEnArista | None = None
+        for u, v, data in self._aristas_candidatas(nodo_ancla):
+            vertices = self._vertices_latlon(u, v, data)
+            fraccion, lat_proj, lon_proj, distancia = proyectar_en_polilinea(lat, lon, vertices)
+            if mejor is None or distancia < mejor.distancia_snap_m:
+                mejor = PosicionEnArista(
+                    arista=self._arista_desde_data(u, v, data),
+                    fraccion=fraccion,
+                    lat=lat_proj,
+                    lon=lon_proj,
+                    distancia_snap_m=distancia,
+                )
+
+        if mejor is None:
+            raise NodoFueraDeRangoError(
+                f"El nodo más cercano a ({lat}, {lon}) no tiene aristas incidentes.",
+                lat=lat,
+                lon=lon,
+            )
+        return mejor
+
+    def _aristas_candidatas(self, nodo: NodoId) -> list[tuple[int, int, Any]]:
+        """Aristas incidentes al nodo y a sus vecinos directos, sin duplicados.
+
+        Devuelve tuplas ``(u, v, data)`` para cada arista entrante o saliente
+        del nodo ancla y de cada uno de sus sucesores/predecesores. La
+        deduplicación es por ``(u, v, key)`` para que las aristas paralelas
+        del MultiDiGraph se consideren una sola vez.
+        """
+        anclas: set[int] = {int(nodo)}
+        anclas.update(int(n) for n in self.grafo.successors(nodo))
+        anclas.update(int(n) for n in self.grafo.predecessors(nodo))
+
+        vistas: set[tuple[int, int, int]] = set()
+        candidatas: list[tuple[int, int, Any]] = []
+        for n in anclas:
+            for u, v, key, data in self.grafo.out_edges(n, keys=True, data=True):
+                if (u, v, key) not in vistas:
+                    vistas.add((u, v, key))
+                    candidatas.append((u, v, data))
+            for u, v, key, data in self.grafo.in_edges(n, keys=True, data=True):
+                if (u, v, key) not in vistas:
+                    vistas.add((u, v, key))
+                    candidatas.append((u, v, data))
+        return candidatas
+
+    def _vertices_latlon(self, u: int, v: int, data: Any) -> list[tuple[float, float]]:
+        """Vértices ``(lat, lon)`` de la arista, en orden ``u → v``.
+
+        Usa la geometría curva ``geometry`` (LineString OSMnx en orden
+        ``(lon, lat)``) si está presente; si no, devuelve el segmento recto
+        entre los endpoints.
+        """
+        geom = data.get("geometry")
+        if geom is not None:
+            return [(float(la), float(lo)) for lo, la in geom.coords]
+        nodos = self.grafo.nodes
+        return [
+            (float(nodos[u]["y"]), float(nodos[u]["x"])),
+            (float(nodos[v]["y"]), float(nodos[v]["x"])),
+        ]

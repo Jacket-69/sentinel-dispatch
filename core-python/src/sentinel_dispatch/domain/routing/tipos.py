@@ -48,6 +48,40 @@ class Arista:
     velocidad_efectiva_kmh: float
 
 
+@dataclass(frozen=True, slots=True)
+class PosicionEnArista:
+    """Proyección de una coordenada arbitraria sobre una arista del grafo.
+
+    Resultado del snap-to-edge (ADR-0020 §H5-cal-3a): en lugar de saltar la
+    coordenada al nodo OSM más cercano (snap-to-node), se proyecta sobre la
+    arista vial más cercana y se registra *dónde* cae a lo largo de ella.
+    OSRM hace exactamente esto; replicarlo elimina el ~68 % de la dispersión
+    de ``duration`` atribuida a snap-to-node (ADR-0011 §Diagnóstico).
+
+    El A* con snap-to-edge (:mod:`a_estrella_snap_edge`) usa ``fraccion`` para
+    construir los tramos truncados de la arista (origen/destino en mitad de
+    calle), reutilizando ``arista`` para conocer longitud y velocidad.
+
+    Atributos:
+        arista: la arista ``(origen → destino)`` sobre la que cae el punto,
+            con su ``longitud_m`` y ``velocidad_efectiva_kmh`` ya resueltas.
+        fraccion: posición a lo largo de la arista en ``[0.0, 1.0]``, medida
+            desde ``arista.origen`` hacia ``arista.destino``. ``0.0`` = sobre
+            el nodo origen; ``1.0`` = sobre el nodo destino.
+        lat: latitud del punto proyectado (sobre la arista), en grados.
+        lon: longitud del punto proyectado (sobre la arista), en grados.
+        distancia_snap_m: distancia en metros entre la coordenada original y
+            el punto proyectado. Análoga a :meth:`GrafoVial.distancia_snap_m`
+            pero medida contra la arista, no contra un nodo (RN-09).
+    """
+
+    arista: Arista
+    fraccion: float
+    lat: float
+    lon: float
+    distancia_snap_m: float
+
+
 class NoRutaDisponibleError(Exception):
     """No existe camino entre origen y destino en el grafo vial.
 

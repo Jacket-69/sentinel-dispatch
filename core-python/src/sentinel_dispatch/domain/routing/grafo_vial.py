@@ -15,7 +15,11 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from sentinel_dispatch.domain.routing.tipos import Arista, NodoId
+    from sentinel_dispatch.domain.routing.tipos import (
+        Arista,
+        NodoId,
+        PosicionEnArista,
+    )
 
 
 class GrafoVial(Protocol):
@@ -60,5 +64,37 @@ class GrafoVial(Protocol):
         Usada para implementar RN-09 (alerta si > 500 m). Convención:
         retorna 0.0 cuando el snap es exacto (coordenada coincide con
         nodo OSM); valores típicos en zona urbana 5-30 m.
+        """
+        ...
+
+
+class GrafoVialConSnapEdge(GrafoVial, Protocol):
+    """Extensión opcional de :class:`GrafoVial` con snap-to-edge (ADR-0020).
+
+    Agrega :meth:`posicion_en_arista` sin tocar el contrato base: los adapters
+    y fakes que solo implementan :class:`GrafoVial` siguen siendo válidos para
+    el A* operativo. Únicamente el camino experimental de calibración CP-01c
+    (:mod:`a_estrella_snap_edge`) exige esta capacidad extendida.
+
+    Esta separación preserva la paridad bit-exacta RT-02 (ADR-0008/0017): el
+    A* operativo y ``run-dataset`` no conocen snap-to-edge, solo el test de
+    calibración lo usa. Ver ADR-0020 §"Paridad RT-02 tras snap-to-edge".
+    """
+
+    def posicion_en_arista(self, lat: float, lon: float) -> PosicionEnArista:
+        """Proyecta una coordenada arbitraria sobre la arista vial más cercana.
+
+        Snap-to-edge: en lugar de saltar al nodo OSM más cercano
+        (:meth:`nodo_mas_cercano`), proyecta el punto sobre la geometría de la
+        arista más próxima y reporta la posición a lo largo de ella. Aplicado
+        en el borde antes de invocar :func:`a_estrella_snap_edge`.
+
+        Returns:
+            :class:`PosicionEnArista` con la arista, la fracción ``[0, 1]``
+            desde su origen, el punto proyectado y la distancia de snap.
+
+        Raises:
+            NodoFueraDeRangoError: si ``(lat, lon)`` cae fuera del bbox de
+                cobertura (RN-01), igual que :meth:`nodo_mas_cercano`.
         """
         ...
