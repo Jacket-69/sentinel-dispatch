@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import statistics
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from sentinel_dispatch.adapters.grafo_osmnx import (
 )
 from sentinel_dispatch.domain.routing.a_estrella import a_estrella
 from sentinel_dispatch.domain.routing.a_estrella_snap_edge import a_estrella_snap_edge
+from sentinel_dispatch.domain.routing.tipos import NoRutaDisponibleError
 
 _log = logging.getLogger(__name__)
 
@@ -66,6 +68,13 @@ se evita el sobreajuste. Ver ADR-0021 §"Por qué 0.80".
 """
 
 FIXTURE_PATH: Path = Path(__file__).resolve().parents[1] / "fixtures" / "osrm_oracle.json"
+FIXTURE_V3_PATH: Path = Path(__file__).resolve().parents[1] / "fixtures" / "osrm_oracle_v3.json"
+
+# CP-01a-95 (ADR-0016, eval-95): criterio sobre la *fracción* dentro de
+# tolerancia (independiente de N) y su estabilidad bootstrap.
+MINIMO_FRACCION_CP01A95: float = 0.75
+N_BOOTSTRAP_CP01A95: int = 1000
+SEED_BOOTSTRAP_CP01A95: int = 2026
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
@@ -297,3 +306,104 @@ def test_cp01c_snap_to_edge(
         f"{TOLERANCIA_DURACION_CP01C}, mínimo exigido: {MINIMO_DENTRO_CP01C}. "
         f"Distribución observada: {_resumen_distribucion(errores_duracion)}"
     )
+
+
+@pytest.fixture(scope="module")
+def fixture_osrm_v3() -> dict[str, object]:
+    """Carga el fixture OSRM oracle v3 (cartesiano, N≥300) committeado."""
+    if not FIXTURE_V3_PATH.exists():
+        pytest.skip(
+            f"Fixture OSRM v3 ausente: {FIXTURE_V3_PATH}. Regenerar con: "
+            "tools/build_osrm_oracle.sh && uv run python "
+            "tools/generate_osrm_fixture.py --modo cartesiano --n-objetivo 300 "
+            "--output core-python/tests/fixtures/osrm_oracle_v3.json"
+        )
+    with FIXTURE_V3_PATH.open("r", encoding="utf-8") as f:
+        data: dict[str, object] = json.load(f)
+    return data
+
+
+def test_cp01a_95_fixture_v3(
+    fixture_osrm_v3: dict[str, object],
+    adapter: OsmnxGrafoVial,
+) -> None:
+    """CP-01a-95 (ADR-0016, eval-95): la fracción dentro de ±30 % es ≥ 0.75 con
+    confianza estadística, medida sobre el fixture v3 (cartesiano, N≥300).
+
+    Criterio (ADR-0016 §Validación final), sobre la *fracción* para ser
+    independiente de N:
+
+    - ``IC95_inferior(fracción dentro de ±30 %) ≥ 0.75``
+    - ``P(fracción ≥ 0.75) ≥ 0.95``
+
+    Bootstrap no paramétrico (B=1000, semilla 2026) sobre los errores
+    relativos de `distance`, replicando `tools/bootstrap_cp01a.py`. Los pares
+    que OSRM rutea pero el grafo propio no conecta (anclas oceánicas del modo
+    cartesiano, componentes desconectados) se cuentan como **miss** definitivo
+    (err → ∞): descartarlos sesgaría la fracción al alza (survivorship bias).
+
+    Usa el A* **operativo** (snap-to-node, sin calibrar): CP-01a-95 mide la
+    fidelidad de `distance`, distinta de CP-01c' (`duration`, ADR-0021).
+    """
+    pares = fixture_osrm_v3["pares"]
+    assert isinstance(pares, list)
+    assert len(pares) >= 300, f"fixture v3 debe tener ≥300 pares, tiene {len(pares)}"
+
+    errores: list[float] = []
+    irruteables = 0
+    for par in pares:
+        assert isinstance(par, dict)
+        origen_coord = par["origen"]
+        destino_coord = par["destino"]
+        assert isinstance(origen_coord, dict)
+        assert isinstance(destino_coord, dict)
+        d_osrm = float(par["distance_m"])
+        if d_osrm <= 0.0:
+            continue
+
+        nodo_origen = adapter.nodo_mas_cercano(
+            float(origen_coord["lat"]), float(origen_coord["lon"])
+        )
+        nodo_destino = adapter.nodo_mas_cercano(
+            float(destino_coord["lat"]), float(destino_coord["lon"])
+        )
+        try:
+            _, ruta = a_estrella(
+                adapter, nodo_origen, nodo_destino, factor_hora=1.0, factor_sirena=1.0
+            )
+        except NoRutaDisponibleError:
+            irruteables += 1
+            errores.append(float("inf"))
+            continue
+        d_propio = _distancia_de_ruta(adapter, ruta)
+        errores.append(abs(d_propio - d_osrm) / d_osrm)
+
+    n = len(errores)
+    minimo = round(MINIMO_FRACCION_CP01A95 * n)
+    conteo_real = sum(1 for e in errores if e <= TOLERANCIA_DISTANCIA)
+
+    rng = random.Random(SEED_BOOTSTRAP_CP01A95)  # noqa: S311 — bootstrap reproducible, no cripto
+    conteos = sorted(
+        sum(1 for e in rng.choices(errores, k=n) if e <= TOLERANCIA_DISTANCIA)
+        for _ in range(N_BOOTSTRAP_CP01A95)
+    )
+    ic95_inferior = conteos[max(0, round(0.025 * N_BOOTSTRAP_CP01A95) - 1)]
+    p_cumplen = sum(1 for c in conteos if c >= minimo) / N_BOOTSTRAP_CP01A95
+
+    _log.info(
+        "CP-01a-95 v3: conteo=%d/%d (irruteables=%d) minimo=%d(0.75) "
+        "IC95_inf=%d (%.3f) P(frac≥0.75)=%.3f",
+        conteo_real,
+        n,
+        irruteables,
+        minimo,
+        ic95_inferior,
+        ic95_inferior / n,
+        p_cumplen,
+    )
+
+    assert ic95_inferior >= minimo, (
+        f"CP-01a-95 falla (IC95): IC95_inferior={ic95_inferior}/{n} "
+        f"({ic95_inferior / n:.3f}) < mínimo {minimo}/{n} (0.75)."
+    )
+    assert p_cumplen >= 0.95, f"CP-01a-95 falla (P): P(fracción≥0.75)={p_cumplen:.3f} < 0.95."
