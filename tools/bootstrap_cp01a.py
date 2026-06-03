@@ -51,6 +51,7 @@ from sentinel_dispatch.adapters.grafo_osmnx import (
     cargar_grafo_iv_region,
 )
 from sentinel_dispatch.domain.routing.a_estrella import a_estrella
+from sentinel_dispatch.domain.routing.tipos import NoRutaDisponibleError
 
 # ---------------------------------------------------------------------------
 # Configuración
@@ -98,9 +99,19 @@ def calcular_errores_distancia(
         destino = par["destino"]
         nodo_o = adapter.nodo_mas_cercano(float(origen["lat"]), float(origen["lon"]))
         nodo_d = adapter.nodo_mas_cercano(float(destino["lat"]), float(destino["lon"]))
-        _, ruta = a_estrella(
-            adapter, nodo_o, nodo_d, factor_hora=1.0, factor_sirena=1.0
-        )
+        try:
+            _, ruta = a_estrella(
+                adapter, nodo_o, nodo_d, factor_hora=1.0, factor_sirena=1.0
+            )
+        except NoRutaDisponibleError:
+            # Par que OSRM rutea (snapeando a la costa) pero nuestro grafo no
+            # puede conectar — componentes desconectados, típico de anclas
+            # oceánicas del modo cartesiano (fixture v3). Se cuenta como miss
+            # definitivo (err → ∞ > tolerancia), NO se descarta: descartarlo
+            # sesgaría la fracción al alza (survivorship bias). En el fixture
+            # v2 (urbano, conexo) esta rama nunca se activa.
+            errores.append(float("inf"))
+            continue
         d_propio = _distancia_de_ruta(adapter, ruta)
         d_osrm = float(par["distance_m"])
         if d_osrm <= 0.0:
@@ -214,12 +225,13 @@ def render_markdown(res: ResultadoBootstrap) -> str:
         "del fixture disponible)."
     )
     lineas = [
-        "# Bootstrap CP-01a — estabilidad estadística del conteo 78/100",
+        f"# Bootstrap CP-01a — estabilidad estadística del conteo "
+        f"{res.conteo_real}/{res.n_muestra}",
         "",
-        "Cuantifica la afirmación del ADR-0011 §V/L#5 *CP-01a se cumple por "
-        "margen estrecho (78/100 vs mínimo 75/100)* mediante un bootstrap "
-        "no paramétrico sobre los 100 errores relativos del fixture "
-        "`tests/fixtures/osrm_oracle.json`.",
+        f"Cuantifica la estabilidad estadística del margen {res.conteo_real}/"
+        f"{res.n_muestra} (mínimo {res.minimo}/{res.n_muestra}, ADR-0011 §V/L#5) "
+        f"mediante un bootstrap no paramétrico sobre los {res.n_muestra} errores "
+        "relativos de un fixture OSRM oracle.",
         "",
         "## Metodología",
         "",
@@ -257,7 +269,7 @@ def render_markdown(res: ResultadoBootstrap) -> str:
         "",
         "## Limitaciones del bootstrap",
         "",
-        "El bootstrap no paramétrico asume que los 100 pares del fixture "
+        f"El bootstrap no paramétrico asume que los {res.n_muestra} pares del fixture "
         "son intercambiables y representativos del proceso generador "
         "subyacente. Esta hipótesis es razonable porque el jitter es "
         "uniforme y la semilla determinista (ADR-0011 §Cómo se generan "

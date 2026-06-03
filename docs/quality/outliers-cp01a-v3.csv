@@ -1,0 +1,19 @@
+par_id,d_propio_m,d_osrm_m,err_rel,n_aristas,n_giros,pct_via_filtrada,pct_aristas_cortas,causa,notas
+122,34722.7,8483.5,3.0930,141,15,0.0000,0.0071,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+202,42672.3,17336.5,1.4614,87,12,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+114,0.0,5652.7,1.0000,0,0,0.0000,0.0000,snap_endpoints,d_propio=0 m << d_OSRM=5653 m (ratio 0.00); snap-to-node colapsó endpoint(s)
+184,3104.5,15451.7,0.7991,13,2,0.0000,0.0000,snap_endpoints,d_propio=3105 m << d_OSRM=15452 m (ratio 0.20); snap-to-node colapsó endpoint(s)
+195,21043.6,11910.2,0.7669,87,23,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+103,11565.9,6562.3,0.7625,39,8,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+95,7255.2,18836.8,0.6148,30,9,0.0000,0.0000,snap_endpoints,d_propio=7255 m << d_OSRM=18837 m (ratio 0.39); snap-to-node colapsó endpoint(s)
+71,13921.4,34524.7,0.5968,73,7,0.0000,0.0000,snap_endpoints,d_propio=13921 m << d_OSRM=34525 m (ratio 0.40); snap-to-node colapsó endpoint(s)
+25,7370.0,17486.2,0.5785,24,9,0.0000,0.0000,snap_endpoints,d_propio=7370 m << d_OSRM=17486 m (ratio 0.42); snap-to-node colapsó endpoint(s)
+266,5646.3,12226.2,0.5382,80,10,0.0000,0.0000,snap_endpoints,d_propio=5646 m << d_OSRM=12226 m (ratio 0.46); snap-to-node colapsó endpoint(s)
+225,16260.4,32839.0,0.5048,72,10,0.0000,0.0000,snap_endpoints,d_propio=16260 m << d_OSRM=32839 m (ratio 0.50); snap-to-node colapsó endpoint(s)
+287,13156.0,9471.2,0.3890,30,7,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+34,3266.0,5025.5,0.3501,44,13,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+68,34090.4,25387.0,0.3428,127,15,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+63,965.4,1460.8,0.3391,10,0,0.1000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+105,17390.2,25579.5,0.3202,69,14,0.0000,0.0145,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+139,16648.0,24056.2,0.3080,78,4,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado
+137,2274.7,3253.1,0.3008,25,7,0.0000,0.0000,residual,no atribuible a snap/turn/via/simplify; residuo combinado

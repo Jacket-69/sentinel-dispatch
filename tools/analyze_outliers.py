@@ -57,6 +57,7 @@ from sentinel_dispatch.adapters.grafo_osmnx import (
     cargar_grafo_iv_region,
 )
 from sentinel_dispatch.domain.routing.a_estrella import a_estrella
+from sentinel_dispatch.domain.routing.tipos import NoRutaDisponibleError
 
 # ---------------------------------------------------------------------------
 # Configuración
@@ -300,13 +301,20 @@ def cargar_pares(path: Path) -> list[dict[str, Any]]:
 
 def detectar_outliers(
     adapter: OsmnxGrafoVial, pares: Iterable[dict[str, Any]]
-) -> list[OutlierRaw]:
+) -> tuple[list[OutlierRaw], int]:
     """Detecta los outliers y precomputa sus features (sin clasificar).
 
     Separa el paso caro (A* + features) del paso barato (clasificación),
     de modo que la grilla de sensibilidad reuse los mismos features.
+
+    Devuelve ``(raws, n_irruteables)``. Los pares que OSRM rutea pero nuestro
+    grafo no puede conectar (componentes desconectados — anclas oceánicas del
+    fixture cartesiano v3) se cuentan aparte como ``n_irruteables``: son
+    outliers de conectividad, no de divergencia de distancia, y no tienen
+    ruta de la cual extraer features.
     """
     raws: list[OutlierRaw] = []
+    n_irruteables = 0
     for par in pares:
         par_id = int(par["id"])
         nodo_origen = adapter.nodo_mas_cercano(
@@ -315,9 +323,13 @@ def detectar_outliers(
         nodo_destino = adapter.nodo_mas_cercano(
             float(par["destino"]["lat"]), float(par["destino"]["lon"])
         )
-        _, ruta = a_estrella(
-            adapter, nodo_origen, nodo_destino, factor_hora=1.0, factor_sirena=1.0
-        )
+        try:
+            _, ruta = a_estrella(
+                adapter, nodo_origen, nodo_destino, factor_hora=1.0, factor_sirena=1.0
+            )
+        except NoRutaDisponibleError:
+            n_irruteables += 1
+            continue
         features = calcular_features(adapter, ruta)
         d_osrm = float(par["distance_m"])
         if d_osrm <= 0.0:
@@ -334,7 +346,7 @@ def detectar_outliers(
                 features=features,
             )
         )
-    return raws
+    return raws, n_irruteables
 
 
 def clasificar_outliers(
@@ -406,7 +418,13 @@ def analisis_sensibilidad(
 # ---------------------------------------------------------------------------
 
 
-def render_markdown(outliers: list[Outlier]) -> str:
+def render_markdown(
+    outliers: list[Outlier],
+    *,
+    n_total: int = 100,
+    n_irruteables: int = 0,
+    fixture_nombre: str = "core-python/tests/fixtures/osrm_oracle.json",
+) -> str:
     conteo = Counter(o.causa for o in outliers)
     total = len(outliers)
     lineas: list[str] = []
@@ -414,13 +432,19 @@ def render_markdown(outliers: list[Outlier]) -> str:
     lineas.append("")
     lineas.append(
         "Generado por `tools/analyze_outliers.py` sobre "
-        "`core-python/tests/fixtures/osrm_oracle.json` "
+        f"`{fixture_nombre}` "
         f"(tolerancia: {TOLERANCIA_DISTANCIA:.0%}). "
         "Las heurísticas y umbrales se documentan en el módulo. "
         "Esta tabla se referencia desde ADR-0011 §Diagnóstico."
     )
     lineas.append("")
-    lineas.append(f"**Total outliers**: {total} / 100")
+    lineas.append(
+        f"**Total outliers**: {total + n_irruteables} / {n_total} "
+        f"({total} clasificados por causa + {n_irruteables} irruteables en el "
+        "grafo propio — componente desconectado, típico de anclas oceánicas "
+        "del fixture cartesiano v3; son outliers de conectividad, no de "
+        "divergencia de distancia)."
+    )
     lineas.append("")
     lineas.append("## Resumen por causa")
     lineas.append("")
@@ -626,12 +650,25 @@ def main() -> int:
 
     pares = cargar_pares(args.fixture)
     logging.info("Analizando %d pares…", len(pares))
-    raws = detectar_outliers(adapter, pares)
+    raws, n_irruteables = detectar_outliers(adapter, pares)
     outliers = clasificar_outliers(raws)
-    logging.info("Outliers detectados: %d / %d", len(outliers), len(pares))
+    logging.info(
+        "Outliers: %d clasificados + %d irruteables / %d pares",
+        len(outliers),
+        n_irruteables,
+        len(pares),
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render_markdown(outliers), encoding="utf-8")
+    args.output.write_text(
+        render_markdown(
+            outliers,
+            n_total=len(pares),
+            n_irruteables=n_irruteables,
+            fixture_nombre=args.fixture.as_posix(),
+        ),
+        encoding="utf-8",
+    )
     write_csv(outliers, args.csv)
     logging.info("Markdown → %s", args.output)
     logging.info("CSV → %s", args.csv)
