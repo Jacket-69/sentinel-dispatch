@@ -39,8 +39,8 @@ Alcance de la revisión: cumplimiento RF/RN/CP cerrados o reformulados en H4, ca
 |---|---|---|---|---|---|
 | H-01 | Defecto | menor | El `_evento` de fixture en `test_exportador.py` y `test_repositorio_jsonl.py` están duplicados. Se podría extraer a un conftest si llegan más tests del paquete. | Benjamin | Post-H5 (no bloqueante) |
 | H-02 | Mejora | menor | El generador `evento_id` con secuencia in-memory podría colisionar si dos procesos abren el mismo log en el mismo segundo. Improbable en v1 (1 operador), pero documentar en ADR-0018 §V2 si se sube a producción multi-operador. | Benjamin | F4 si aplica |
-| H-03 | Mejora | menor | `application/simulacion.py` documenta "sin evolución temporal entre incidentes" en el docstring. Sería útil reflejarlo también en la trazabilidad RF-12, para evitar que el evaluador piense que el modo simulación implementa reloj virtual. | Benjamin | Pre-informe v1.0 |
-| H-04 | Pregunta | menor | El criterio CP-12 ajustado (≤ 2000 ms p95) vive en ADR-0019 pero el SRS sigue diciendo ≤ 1000 ms. ¿El informe final debe proponer formalmente la modificación al SRS o basta con que el ADR sea citable? | Benjamin | Pre-informe v1.0 |
+| H-03 | Mejora | menor | `application/simulacion.py` documenta "sin evolución temporal entre incidentes" en el docstring. Sería útil reflejarlo también en la trazabilidad RF-12, para evitar que el evaluador piense que el modo simulación implementa reloj virtual. | Benjamin | ✅ Resuelto en PR #30: nota "Semántica v1: SIN evolución temporal" en `trazabilidad.md` RF-12 |
+| H-04 | Pregunta | menor | El criterio CP-12 ajustado (≤ 2000 ms p95) vive en ADR-0019 pero el SRS sigue diciendo ≤ 1000 ms. ¿El informe final debe proponer formalmente la modificación al SRS o basta con que el ADR sea citable? | Benjamin | ✅ Resuelto 2026-06-02 (PR #33): revisión del primer entregable. Enfoque **addendum + arreglar espejo** — nuevo §2.17 Addendum en el SRS LaTeX (criterios originales intactos) + `docs/SRS.md` reconciliado. Aplica a CP-12 (ADR-0019), CP-01c' (ADR-0021) y CP-01a-95 (ADR-0016) |
 | H-05 | Defecto | menor | El test `test_cp01c_calibracion_y_turn_penalty` marcado `xfail strict=True` significa que si la calibración casualmente alcanza el criterio (por cambios externos) el test FALLA. Esto es intencional según ADR-0020, pero amerita un comentario explícito en el código para que un futuro mantenedor no lo "arregle" sin contexto. | Benjamin | Resuelto durante la FTR (ver §Decisiones) |
 | H-06 | Mejora | menor | El módulo `application/serializacion.py` no tiene tests UT propios (cobertura indirecta via `test_run_dataset_cmd.py`). Agregar UT directos da granularidad. | Benjamin | Backlog post-H5 |
 | H-07 | Pregunta | menor | `tools/_out/spike_cp12_resultado.json` se versiona como evidencia citada por ADR-0019. ¿Política para futuros artefactos derivados de spikes — versionar todos, o solo los citados por ADR? | Benjamin | Backlog post-H5 |
@@ -82,14 +82,16 @@ Confirma que H4 está apto para cierre formal: ningún defecto bloquea merge, ni
 
 1. **H-05 (test xfail strict)**: agregado comentario inline al test referenciando ADR-0020 §"Test marcado xfail". Documentado en este acta.
 2. **H4 cierra formalmente con esta FTR**. Los hallazgos menores quedan en backlog y no bloquean el avance a H5.
-3. **Métricas y limitaciones del SRS quedan documentadas en ADRs** (no se modifica el SRS LaTeX en este momento; eso se decidirá al armar el informe final v1.0 — H-04).
+3. **Métricas y limitaciones del SRS quedan documentadas en ADRs** (en el momento de la FTR no se modificó el SRS LaTeX; la decisión H-04 se resolvió el 2026-06-02 — ver nota abajo).
+
+> **Actualización 2026-06-02 (resolución H-04).** La revisión del primer entregable se ejecutó en H5 (PR #33). Decisión: **addendum, no reescritura**. Se agregó un §2.17 "Addendum de revisión post-implementación" al SRS LaTeX (manteniendo los criterios originales intactos en el cuerpo) con una tabla de reconciliación original→vigente (CP-01 duration, CP-12 perf, v_max, + CP-01a-95) anclada en la nota §2.12; PDF regenerado, versión previa archivada. El espejo `docs/SRS.md` se reconcilió en paralelo. Los entregables ya presentados (Segunda Eval) no se editan (históricos).
 4. **El plan H5 mantiene 3 sub-fases** según el plan original: fixture v3 N≥300 (Ruta B ADR-0016), snap-to-edge (H5-cal-3 ADR-0020 + 0016 Ruta A), informe v1.0 + tag.
 
 ## Acuerdos / follow-ups
 
 - [x] H-05: comentario al test ya agregado en el mismo PR de este acta — responsable: Benjamin — fecha: 2026-05-21
-- [ ] H-03: actualizar trazabilidad de RF-12 mencionando "sin evolución temporal entre incidentes" — responsable: Benjamin — fecha: pre-informe v1.0
-- [ ] H-04: decidir si el informe v1.0 propone modificación formal del SRS para CP-12 o se mantiene como brecha documentada vía ADR-0019 — responsable: Benjamin — fecha: al armar informe v1.0
+- [x] H-03: trazabilidad RF-12 con nota "SIN evolución temporal entre incidentes" — responsable: Benjamin — fecha: 2026-05-21 (PR #30)
+- [x] H-04: resuelto vía addendum §2.17 al SRS LaTeX + reconciliación de `docs/SRS.md` (no reescritura) — responsable: Benjamin — fecha: 2026-06-02 (PR #33)
 - [ ] H-06: backlog — UT directos de `application/serializacion.py` — responsable: Benjamin — fecha: post-H5
 
 ## Veredicto del cierre
