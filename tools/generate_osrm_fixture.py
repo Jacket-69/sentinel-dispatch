@@ -49,12 +49,19 @@ BBOX_TOP: float = -29.85
 
 SEED: int = 2026
 PARES_OBJETIVO: int = 100
-JITTERS_POR_INCIDENTE: int = (
-    10  # 10 bases × 12 incidentes × 10 jitters = 1200 candidatos
-)
+JITTERS_POR_INCIDENTE: int = 10  # 10 bases × 12 incidentes × 10 jitters = 1200 candidatos
 JITTER_GRADOS: float = 0.0013  # ~150 m al sur de Coquimbo (1° lat ≈ 111 km)
 DISTANCIA_MINIMA_M: float = 200.0
 TIMEOUT_S: float = 10.0
+
+# Modo cartesiano (Ruta B, ADR-0016): grilla regular sobre el bbox + jitter
+# amplio en ambos extremos. Cubre todo el bbox (no solo el clúster urbano de
+# bases/incidentes), expone rutas largas inter-comuna que aprietan el IC95 y
+# mitiga el sesgo de jitter pequeño de ADR-0011 §V/L#3.
+MODO_BASESXINCIDENTES: str = "basesxincidentes"
+MODO_CARTESIANO: str = "cartesiano"
+JITTER_GRADOS_AMPLIO: float = 0.01  # ~1.1 km (1° lat ≈ 111 km)
+GRID_LADO_CARTESIANO: int = 8  # 8×8 = 64 anclas → 64×63 = 4032 pares candidatos
 
 ROOT: Path = Path(__file__).resolve().parents[1]
 UNIDADES_PATH: Path = ROOT / "data" / "dataset" / "unidades.json"
@@ -105,6 +112,46 @@ def generar_candidatos(
     return candidatos
 
 
+def generar_candidatos_cartesiano(
+    rng: random.Random,
+    *,
+    grid_lado: int = GRID_LADO_CARTESIANO,
+    jitter_grados: float = JITTER_GRADOS_AMPLIO,
+) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """Producto cartesiano de una grilla regular sobre el bbox + jitter amplio.
+
+    Construye ``grid_lado × grid_lado`` anclas equiespaciadas en el bbox
+    ``(-71.45, -30.10, -71.15, -29.85)``, forma todos los pares ordenados
+    origen≠destino (``grid_lado² · (grid_lado² − 1)`` candidatos) y aplica
+    jitter uniforme ``±jitter_grados`` (~1.1 km a 0.01°) a ambos extremos,
+    independiente por componente lat/lon. A diferencia de
+    :func:`generar_candidatos` —anclada al clúster urbano de bases e
+    incidentes—, cubre todo el bbox: incluye rutas largas inter-comuna que
+    aprietan el IC95 (Ruta B del ADR-0016) y reduce el sesgo de jitter
+    pequeño señalado en ADR-0011 §V/L#3. Las anclas oceánicas del oeste del
+    bbox se descartan en :func:`generar_fixture` por ``sin_ruta``.
+    """
+    lats = [BBOX_BOTTOM + (BBOX_TOP - BBOX_BOTTOM) * i / (grid_lado - 1) for i in range(grid_lado)]
+    lons = [BBOX_LEFT + (BBOX_RIGHT - BBOX_LEFT) * j / (grid_lado - 1) for j in range(grid_lado)]
+    anclas = [(lat, lon) for lat in lats for lon in lons]
+    candidatos: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    for origen in anclas:
+        for destino in anclas:
+            if origen == destino:
+                continue
+            jittered_o = (
+                origen[0] + rng.uniform(-jitter_grados, jitter_grados),
+                origen[1] + rng.uniform(-jitter_grados, jitter_grados),
+            )
+            jittered_d = (
+                destino[0] + rng.uniform(-jitter_grados, jitter_grados),
+                destino[1] + rng.uniform(-jitter_grados, jitter_grados),
+            )
+            candidatos.append((jittered_o, jittered_d))
+    rng.shuffle(candidatos)
+    return candidatos
+
+
 class MotivoDescarte:
     """Etiquetas de descarte para contar separadamente cada causa."""
 
@@ -147,11 +194,43 @@ def consultar_osrm(
     return float(ruta["duration"]), float(ruta["distance"])
 
 
-def generar_fixture() -> dict[str, Any]:
-    bases = cargar_bases()
-    incidentes = cargar_incidentes()
+def generar_fixture(
+    *,
+    modo: str = MODO_BASESXINCIDENTES,
+    n_objetivo: int = PARES_OBJETIVO,
+) -> dict[str, Any]:
     rng = random.Random(SEED)
-    candidatos = generar_candidatos(bases, incidentes, rng)
+    if modo == MODO_CARTESIANO:
+        candidatos = generar_candidatos_cartesiano(rng)
+        version = "3"
+        jitter_meta: dict[str, Any] = {
+            "radio_grados": JITTER_GRADOS_AMPLIO,
+            "radio_metros_aprox": round(JITTER_GRADOS_AMPLIO * 111_000.0, 1),
+            "distribucion": "uniform",
+            "aplicado_sobre": "ambos extremos (grilla cartesiana sobre el bbox)",
+            "generador": (
+                "random.Random(seed).uniform(-radio_grados, +radio_grados) por "
+                "componente lat y lon, independiente, en origen y destino"
+            ),
+            "grid_lado": GRID_LADO_CARTESIANO,
+        }
+    else:
+        bases = cargar_bases()
+        incidentes = cargar_incidentes()
+        candidatos = generar_candidatos(bases, incidentes, rng)
+        version = "2"
+        jitter_meta = {
+            "radio_grados": JITTER_GRADOS,
+            "radio_metros_aprox": round(JITTER_GRADOS * 111_000.0, 1),
+            "distribucion": "uniform",
+            "aplicado_sobre": "destino (incidente); origen sin jitter",
+            "generador": (
+                "random.Random(seed).uniform(-radio_grados, +radio_grados) por "
+                "componente lat y lon, independiente"
+            ),
+            "jitters_por_incidente": JITTERS_POR_INCIDENTE,
+        }
+
     pares: list[dict[str, Any]] = []
     descartes: dict[str, int] = {
         MotivoDescarte.RED: 0,
@@ -169,7 +248,7 @@ def generar_fixture() -> dict[str, Any]:
             raise SystemExit(f"OSRM no responde en {OSRM_BASE_URL}: {exc}") from exc
 
         for origen, destino in candidatos:
-            if len(pares) >= PARES_OBJETIVO:
+            if len(pares) >= n_objetivo:
                 break
 
             resultado = consultar_osrm(cliente, origen, destino)
@@ -198,17 +277,19 @@ def generar_fixture() -> dict[str, Any]:
             # mantiene el mismo patrón si en el futuro se apunta al demo público.
             time.sleep(0.015)
 
-    if len(pares) < PARES_OBJETIVO:
+    if len(pares) < n_objetivo:
         # Si predomina `red`, el problema es OSRM (caído, lento, malformado);
-        # si predomina `sin_ruta`, el bbox/SCC no alcanza; si predomina
-        # `distancia_corta`, hay que aumentar JITTERS_POR_INCIDENTE.
+        # si predomina `sin_ruta`, el bbox/SCC no alcanza (esperable en modo
+        # cartesiano por las anclas oceánicas); si predomina `distancia_corta`,
+        # subir el jitter o, en cartesiano, GRID_LADO_CARTESIANO.
         raise SystemExit(
-            f"Solo {len(pares)} pares válidos de {len(candidatos)} candidatos. "
-            f"Descartes por causa: {descartes}. Diagnóstico arriba."
+            f"Solo {len(pares)} pares válidos de {len(candidatos)} candidatos "
+            f"(modo={modo}). Descartes por causa: {descartes}. Diagnóstico arriba."
         )
 
     return {
-        "version": "2",
+        "version": version,
+        "modo": modo,
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "bbox": [BBOX_LEFT, BBOX_BOTTOM, BBOX_RIGHT, BBOX_TOP],
         "osrm": {
@@ -219,24 +300,32 @@ def generar_fixture() -> dict[str, Any]:
             "seed": SEED,
             "descartes": descartes,
         },
-        "jitter": {
-            "radio_grados": JITTER_GRADOS,
-            "radio_metros_aprox": round(JITTER_GRADOS * 111_000.0, 1),
-            "distribucion": "uniform",
-            "aplicado_sobre": "destino (incidente); origen sin jitter",
-            "generador": (
-                "random.Random(seed).uniform(-radio_grados, +radio_grados) por "
-                "componente lat y lon, independiente"
-            ),
-            "jitters_por_incidente": JITTERS_POR_INCIDENTE,
-        },
+        "jitter": jitter_meta,
         "distancia_minima_m": DISTANCIA_MINIMA_M,
+        "n_objetivo": n_objetivo,
         "pares": pares,
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--modo",
+        choices=[MODO_BASESXINCIDENTES, MODO_CARTESIANO],
+        default=MODO_BASESXINCIDENTES,
+        help=(
+            f"Estrategia de generación. '{MODO_BASESXINCIDENTES}' (default): "
+            "10 bases × 12 incidentes × jitter pequeño (fixture v2). "
+            f"'{MODO_CARTESIANO}': grilla cartesiana sobre el bbox + jitter amplio "
+            "(fixture v3, Ruta B del ADR-0016)."
+        ),
+    )
+    parser.add_argument(
+        "--n-objetivo",
+        type=int,
+        default=PARES_OBJETIVO,
+        help=f"Objetivo de pares válidos (default: {PARES_OBJETIVO}).",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -245,12 +334,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     inicio = time.perf_counter()
 
-    fixture = generar_fixture()
+    fixture = generar_fixture(modo=args.modo, n_objetivo=args.n_objetivo)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as f:
