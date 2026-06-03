@@ -223,7 +223,7 @@ El re-despacho **no es automático**: el sistema presenta la propuesta al operad
 - **RN-02 — Saturación crítica (Echo/Delta + única unidad Básica):** si la única unidad Disponible es Básica y el incidente es Echo o Delta, el sistema **escala alerta** (despacha igual con flag rojo "Despacho sub-óptimo crítico — unidad inadecuada") en lugar de bloquear el despacho. El operador puede anular. El evento queda registrado con campo especial `despacho_suboptimo: true` en el log.
 - **RN-03 — Log inmutable:** cada despacho genera un registro JSON inmutable con todos los campos del cálculo. Solo se permite agregar eventos posteriores (cancelación, finalización, re-despacho) como entradas adicionales; nunca editar ni eliminar.
 - **RN-04 — Taller excluido:** unidades con estado = Taller no participan en el cálculo bajo ninguna circunstancia.
-- **RN-05 — Rendimiento:** el cálculo completo (árbol de triaje + A* + selección de unidad) debe completarse en ≤ 1 segundo para flotas de hasta 50 unidades, y en ≤ 300 ms para flotas de hasta 10 unidades.
+- **RN-05 — Rendimiento:** el cálculo completo (árbol de triaje + A* + selección de unidad) debe completarse en **≤ 2 000 ms p95 para flotas de hasta 50 unidades** (criterio ajustado por evidencia tras el spike CP-12, [ADR-0019](architecture/decisions/0019-spike-cp12-criterio-ajustado.md); el objetivo original era ≤ 1 segundo — ver §2.17). Para flotas pequeñas (≤ 10 unidades) el cálculo se mantiene holgadamente bajo ese techo.
 - **RN-06 — Confirmación humana de re-despacho:** el sistema propone el re-despacho pero no lo ejecuta sin confirmación explícita del operador de despacho.
 - **RN-07 — Append-only de logs:** los logs solo admiten append de nuevos eventos. Cualquier intento de modificar un registro existente debe fallar con error y generar una entrada de alerta en el log de auditoría.
 - **RN-08 — Saturación de flota:** si no existen unidades en estado Disponible, el sistema reporta el estado de saturación e identifica las unidades EnRuta con menor progreso de trayecto como candidatas a re-dirección, para consideración del operador.
@@ -292,8 +292,8 @@ El re-despacho **no es automático**: el sistema presenta la propuesta al operad
 |---|---|
 | **Precisión de ruteo** | La distancia de la ruta calculada por A* debe coincidir con la calculada por OSRM (oracle externo sobre el mismo grafo OSM) con `\|Δ_distance\| / d_OSRM ≤ 0.30` en ≥ 75 de 100 pares del fixture committeado (CP-01a). La divergencia en duración se reporta a título observacional (CP-01b). Ver [ADR-0011](architecture/decisions/0011-reformulacion-criterio-it01.md) para la justificación del experimento que reformuló este criterio. |
 | **Confiabilidad** | El sistema debe estar disponible el 99,9% del tiempo en horario operativo (equivale a ≤ 8,76 horas de downtime anual) |
-| **Rendimiento — flota grande** | El cálculo completo (triaje + A* + selección) se completa en ≤ 1 segundo para flotas de hasta 50 unidades simultáneas |
-| **Rendimiento — flota pequeña** | El cálculo completo se completa en ≤ 300 ms para flotas de hasta 10 unidades simultáneas |
+| **Rendimiento — flota grande** | El cálculo completo (triaje + A* + selección) se completa en ≤ 2 000 ms p95 para flotas de hasta 50 unidades simultáneas (criterio ajustado por [ADR-0019](architecture/decisions/0019-spike-cp12-criterio-ajustado.md); objetivo original ≤ 1 segundo — ver §2.17) |
+| **Rendimiento — flota pequeña** | El cálculo completo se completa holgadamente bajo el techo p95 para flotas de hasta 10 unidades simultáneas |
 | **Trazabilidad** | Cada despacho confirmado persiste su log con todas las variables del cálculo: respuestas de triaje, categoría MPDS, costos por unidad, unidad seleccionada, ETA, ruta y timestamp |
 | **Tolerancia a errores** | Coordenadas fuera del rango IV Región son rechazadas con mensaje descriptivo antes de ejecutar cualquier cálculo; el sistema nunca entrega resultado sobre entrada inválida |
 | **Usabilidad** | Un operador entrenado completa el árbol de triaje (ingreso de coordenadas + respuestas) en ≤ 90 segundos bajo condiciones normales de operación |
@@ -373,9 +373,11 @@ El dataset cubre las cinco categorías MPDS con distribución orientada a los ca
 | CP-09 | Validación de coordenadas — fuera de rango | lat = −31.200000, lon = −71.300000 | Rechazo con mensaje "Coordenadas fuera del área de cobertura (IV Región)" | No se ejecuta A* ni cálculo de costo; ningún log de despacho generado |
 | CP-10 | Saturación de flota | Todas las unidades en estado EnRuta o EnEscena | Sistema reporta saturación; lista candidatas a re-dirección ordenadas por progreso ascendente | Mensaje de saturación visible; no se genera despacho automático |
 | CP-11 | Empate de costo — desempate lexicográfico | Incidente con U03 y U07 (ambas Avanzada) con T_viaje idéntico calculado | U03 seleccionada | ID seleccionado = "U03" (menor lexicográfico respecto a "U07") |
-| CP-12 | Performance — flota de 50 unidades | 50 unidades Disponibles (fixture sintético, generado por bench script fuera del dataset de aceptación); incidente Echo ingresado | Cálculo completo completado | Tiempo total (triaje + A* × 50 + argmin) ≤ 1 000 ms medido en servidor de prueba |
+| CP-12 | Performance — flota de 50 unidades | 50 unidades Disponibles (fixture sintético, generado por bench script fuera del dataset de aceptación); incidente Echo ingresado | Cálculo completo completado | Tiempo total (triaje + A* × 50 + argmin) **≤ 2 000 ms p95** (criterio ajustado por evidencia, [ADR-0019](architecture/decisions/0019-spike-cp12-criterio-ajustado.md); medido p95 = 1 941 ms). El SRS original pedía ≤ 1 000 ms (ver §2.17). |
+| CP-01c' | Paridad de `duration` post-calibración (snap-to-edge) | Mismos 100 pares; A* calibrado experimental + snap-to-edge a `factor_calibracion = 0.80` | duration de la ruta encontrada | `\|Δ_duration\| / T_OSRM ≤ 0.30` en ≥ 75/100 (medido 78/100). Recalibra el objetivo histórico ±15%/≥85 — ver [ADR-0021](architecture/decisions/0021-cp01c-snap-to-edge-criterio-realista.md) |
+| CP-01a-95 | Confianza estadística de CP-01a | Fixture v3 cartesiano N=300 (`tests/fixtures/osrm_oracle_v3.json`); bootstrap B=1000, semilla 2026 | fracción dentro de ±30% y su IC95 | `IC95_inferior(fracción) ≥ 0.75` Y `P(fracción ≥ 0.75) ≥ 0.95` (medido: fracción 0.897, IC95 inf 0.860, P = 100%). Ver [ADR-0016](architecture/decisions/0016-camino-95-cp01a.md) |
 
-¹ **Nota CP-01** — La formulación original del criterio (`|T_A* − T_OSRM| / T_OSRM ≤ 0.05` en ≥ 95/100) se reformuló tras el experimento real ejecutado el 2026-05-18: el A* simple del SRS no modela las penalidades de giro/semáforo ni el speed factor de OSRM, lo que produce divergencias sistemáticas en `duration`. La métrica `distance` es el proxy de paridad de ruta defendible. Ver [ADR-0011](architecture/decisions/0011-reformulacion-criterio-it01.md) con los datos del experimento y la justificación.
+¹ **Nota CP-01** — La formulación original del criterio (`|T_A* − T_OSRM| / T_OSRM ≤ 0.05` en ≥ 95/100) se reformuló tras el experimento real ejecutado el 2026-05-18: el A* simple del SRS no modela las penalidades de giro/semáforo ni el speed factor de OSRM, lo que produce divergencias sistemáticas en `duration`. La métrica `distance` es el proxy de paridad de ruta defendible (CP-01a). Posteriormente la paridad de `duration` se cerró con snap-to-edge bajo el criterio recalibrado CP-01c' (±30%/≥75, [ADR-0021](architecture/decisions/0021-cp01c-snap-to-edge-criterio-realista.md)) y la confianza estadística de CP-01a se verificó como CP-01a-95 sobre el fixture v3 ([ADR-0016](architecture/decisions/0016-camino-95-cp01a.md)). Síntesis en §2.17. Ver [ADR-0011](architecture/decisions/0011-reformulacion-criterio-it01.md) con los datos del experimento y la justificación.
 
 ---
 
@@ -404,7 +406,7 @@ El dataset cubre las cinco categorías MPDS con distribución orientada a los ca
 
 4. **Re-despacho — comportamiento correcto en frontera:** CL-05 (progreso 60%) no genera propuesta de re-despacho; CL-06 (progreso 40%) sí genera propuesta con espera de confirmación. Ambos comportamientos verificados por CP-06 y CP-07.
 
-5. **Performance:** El cálculo completo se ejecuta en ≤ 1 000 ms para flota de 50 unidades y en ≤ 300 ms para flota de 10 unidades, medidos en el servidor de prueba bajo carga nominal. (Verificado por CP-12.)
+5. **Performance:** El cálculo completo se ejecuta en ≤ 2 000 ms p95 para flota de 50 unidades, medido en el servidor de prueba bajo carga nominal (criterio ajustado por evidencia, [ADR-0019](architecture/decisions/0019-spike-cp12-criterio-ajustado.md); el objetivo original ≤ 1 000 ms — ver §2.17). (Verificado por CP-12.)
 
 6. **Trazabilidad completa:** Cada despacho confirmado genera un log JSON con los campos obligatorios: id, timestamp ISO 8601, respuestas de triaje, categoría MPDS, costos desglosados por unidad evaluada, unidad seleccionada, ETA, ruta de nodos, flag de sub-óptimo y operador. (Verificado por CP-06 y CP-08.)
 
@@ -476,3 +478,20 @@ La implementación Java aporta:
 - **Performance benchmarking** contra JVM caliente (informe final).
 
 **Veredicto**: Python como implementación primaria del sistema; Java como validador del núcleo. La partición refleja el ecosistema disponible (Python tiene OSMnx; Java tiene JGraphT) y se documenta en la decisión arquitectónica del proyecto.
+
+---
+
+## 2.17 Addendum de revisión post-implementación
+
+Esta sección se agrega tras la implementación (hitos H2–H5) y **no invalida** el SRS: documenta los criterios numéricos que se **reformularon o ajustaron por evidencia empírica** al medir el sistema contra un oracle OSRM 5.27 sobre el grafo OSM real de la conurbación La Serena–Coquimbo, con su decisión arquitectónica (ADR) y su causa. Es coherente con la nota **Importante** de la sección 2.12: los ETA son aproximaciones y la validación numérica exacta se difirió a la fase de implementación con datos reales — exactamente lo que ocurrió al medir. La versión LaTeX congelada del SRS conserva los criterios originales en su cuerpo; esta tabla es la reconciliación canónica.
+
+| Criterio | Original (§2.10 / §2.13) | Vigente (medido) | ADR | Naturaleza del cambio |
+|---|---|---|---|---|
+| **CP-01** (paridad de ruteo) | `duration`: error relativo ≤ 5% en ≥ 95/100 | Reformulado a ±30% en ≥ 75/100 en dos criterios: **CP-01a** (`distance`, medido 78/100) y **CP-01c'** (`duration` con snap-to-edge, medido 78/100) | 0011, 0013, 0020, 0021 | Reformulación + desviación. El ±5% en `duration` es inalcanzable sin reimplementar el modelo de costo `car.lua` de OSRM (penalización de giros, semáforos, perfil de velocidad por clase de vía). |
+| **CP-01a-95** (confianza estadística) | — (criterio nuevo, derivado por bootstrap) | Cumplido sobre el fixture v3 (N=300, rutas inter-comuna): fracción dentro de ±30% = 0.897; IC95 inferior 0.860 ≥ 0.75; P(fracción ≥ 0.75) = 100% | 0016 | Cumplido. El margen estrecho de la muestra v2 (78/100) era sesgo hacia rutas urbanas cortas, no una limitación del A*. |
+| **CP-12 / RN-05** (performance) | Tiempo total ≤ 1 000 ms para 50 unidades | ≤ 2 000 ms p95 (medido p95 = 1 941 ms, A* secuencial) | 0019 | Ajuste por evidencia + desviación. La paralelización del A* queda como deuda para v2. |
+| **v_max** heurística A* | 140 km/h (38.89 m/s) | 180 km/h (50 m/s) | 0010 | Ajuste técnico necesario: preserva la admisibilidad de la heurística ante motorway (120 km/h) × factor_sirena (1.4) = 168 km/h. |
+
+**Criterios sin cambio.** El resto del SRS se cumple según lo especificado. En particular **RT-02** (equivalencia entre Python y Java, ±5% en numéricos) se mantiene **intacto** y verificado bit-exacto (12/12 OK en integración continua); RN-09 (umbral de snap de 500 m), la función de costo (α = 1, β = 600 s) y el árbol de triaje (12/12 incidentes del dataset) se cumplen tal como se especificó.
+
+**Trazabilidad.** El detalle de cada decisión vive en los ADR citados (`docs/architecture/decisions/`) y en la matriz de trazabilidad (`docs/quality/trazabilidad.md`).
