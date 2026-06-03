@@ -1,13 +1,50 @@
 ---
 adr: 0016
 title: Camino al 95% de confianza sobre CP-01a — calibración (Ruta A) + fixture v3 (Ruta B)
-status: proposed
+status: accepted
 date: 2026-05-19
+resuelto: 2026-06-02
 deciders: Benjamín López
 tags: [adr, dominio, routing, it01, osrm, srs, validacion, bootstrap, calibracion]
 ---
 
 # ADR 0016 — Camino al 95% de confianza sobre CP-01a
+
+## Resultado — eval-95 (2026-06-02): CP-01a-95 ✅ CUMPLIDO
+
+Ejecutadas Ruta A (calibración + snap-to-edge, [ADR-0021](0021-cp01c-snap-to-edge-criterio-realista.md))
+y Ruta B (fixture v3 cartesiano N=300), la verificación final **se cumple con
+holgura**, medida sobre `tests/fixtures/osrm_oracle_v3.json` con el A\*
+**operativo** (snap-to-node, sin calibrar) y B=1000, semilla 2026:
+
+| Métrica (fracción dentro de ±30 %) | Valor v3 | Umbral | ¿Cumple? |
+|---|---|---|:--:|
+| Conteo real | 269/300 = **0.897** | — | — |
+| IC95 inferior | 258/300 = **0.860** | ≥ 0.75 | ✅ |
+| P(fracción ≥ 0.75) | **100.0 %** | ≥ 0.95 | ✅ |
+
+**Hallazgo central**: el criterio se evalúa sobre la **fracción** (no el conteo
+absoluto), para ser independiente de N (§Validación final). El A\* operativo
+alcanza **89.7 %** de fidelidad de `distance` sobre una muestra diversa,
+bbox-wide, mucho mejor que el 78/100 de v2. La causa es que el modo cartesiano
+genera **rutas largas inter-comuna**, donde el error de snap (~150 m fijo) es una
+fracción pequeña del total; v2 estaba **sesgado a rutas urbanas cortas**
+(exactamente el [ADR-0011](0011-reformulacion-criterio-it01.md) §V/L#3), donde
+ese mismo snap dominaba el error relativo. La predicción de este ADR de que
+"Ruta B sola probablemente no alcanza" (basada en suponer mediana 0.78) quedó
+**superada**: la mediana real sobre v3 es 0.897.
+
+**Tratamiento conservador**: 13/300 pares que OSRM rutea (snapeando anclas
+oceánicas a la costa) pero el grafo propio no conecta (componentes
+desconectados) se cuentan como **miss** (no se descartan: sería survivorship
+bias). Aun así el criterio pasa. La distribución de outliers se desglosa en
+[outliers-cp01a-v3.md](../quality/outliers-cp01a-v3.md) (18 clasificados + 13
+irruteables) y el bootstrap completo en
+[bootstrap-cp01a-v3.md](../quality/bootstrap-cp01a-v3.md).
+
+Automatizado en `tests/integration/test_routing_vs_osrm.py::test_cp01a_95_fixture_v3`
+(`slow`, fuera del CI rápido). Con esto **ADR-0011 §V/L#5 queda resuelto** (el
+margen estrecho de v2 era un artefacto del sesgo de muestra, no del A\*).
 
 ## Contexto
 
@@ -107,11 +144,11 @@ Generar un fixture nuevo `tests/fixtures/osrm_oracle_v3.json` con mayor diversid
 
 ### Validación final — H5-eval-95
 
-8. **H5-eval-95**: ejecutar `uv run --project core-python python tools/bootstrap_cp01a.py --fixture tests/fixtures/osrm_oracle_v3.json` tras aplicar Ruta A + Ruta B. Assertear:
-    - `IC95 inferior ≥ 75`
-    - `P(conteo ≥ 75) ≥ 0.95`
+8. **H5-eval-95** ✅ (2026-06-02): ejecutar `uv run --project core-python python tools/bootstrap_cp01a.py --fixture core-python/tests/fixtures/osrm_oracle_v3.json --minimo 225` (225 = ⌈0.75·300⌉) sobre el fixture v3. El criterio se asserta sobre la **fracción** (no el conteo absoluto) para ser independiente de N:
+    - `IC95_inferior(fracción) ≥ 0.75` → **0.860** ✅
+    - `P(fracción ≥ 0.75) ≥ 0.95` → **100.0 %** ✅
 
-   Si ambas se cumplen, marcar ADR-0016 como `accepted`, marcar ADR-0011 §V/L#5 como `resuelto`, actualizar matriz de trazabilidad RF-03 y, opcionalmente, agregar test de integración `test_bootstrap_cp01a_95.py` que automatice el chequeo en CI.
+   Ambas se cumplen → ADR-0016 `accepted`, ADR-0011 §V/L#5 `resuelto`, trazabilidad RF-03 actualizada. Automatizado en `test_routing_vs_osrm.py::test_cp01a_95_fixture_v3` (`slow`). Ver §Resultado arriba.
 
 ## Alternativas consideradas
 
@@ -157,21 +194,21 @@ Generar un fixture nuevo `tests/fixtures/osrm_oracle_v3.json` con mayor diversid
 
 ### Neutras
 
-- ADR queda en `status: proposed` hasta que H5-eval-95 se ejecute. Las tareas individuales pueden completarse y marcarse antes (cada tarea actualiza este ADR con su estado).
-- Este ADR **complementa** ADR-0013 (no lo supersede). ADR-0013 fijó el criterio CP-01c (duration ±15% en ≥85/100), **recalibrado a CP-01c' (±30%/≥75) por [ADR-0021](0021-cp01c-snap-to-edge-criterio-realista.md)** tras medir snap-to-edge (objetivo histórico inalcanzable por brecha estructural vs `car.lua`); ADR-0016 agrega el criterio CP-01a-95, que es distinto e independiente. La Ruta A (calibración + snap-to-edge) está completa y medida; la Ruta B (fixture v3 N≥300) sigue pendiente en H5-fix.
+- ADR `accepted` desde 2026-06-02 (H5-eval-95 ejecutado, CP-01a-95 cumplido — ver §Resultado). Cada tarea individual se marcó a medida que se completó.
+- Este ADR **complementa** ADR-0013 (no lo supersede). ADR-0013 fijó el criterio CP-01c (duration ±15% en ≥85/100), **recalibrado a CP-01c' (±30%/≥75) por [ADR-0021](0021-cp01c-snap-to-edge-criterio-realista.md)** tras medir snap-to-edge (objetivo histórico inalcanzable por brecha estructural vs `car.lua`); ADR-0016 agrega el criterio CP-01a-95, que es distinto e independiente. Tanto la Ruta A (calibración + snap-to-edge) como la Ruta B (fixture v3 cartesiano N=300) están completas y medidas.
 
 ## Tareas explícitas y trazabilidad
 
-| Tarea | Ruta | Hito | Esfuerzo | Bloqueante CP-01a-95 |
-|---|---|---|---:|:---:|
-| H4-cal-1 — `factor_calibracion=0.85` | A | H4 | 2-3 h | Sí |
-| H4-cal-2 — turn penalties en A* | A | H4 | 3-4 h | Sí |
-| H4-cal-eval — verificar CP-01c | A | H4 | 1 h | Sí |
-| H5-cal-3 — snap-to-edge | A | H5 | 6-8 h | Sí (ADR-0011 §V/L#5 lo exige) |
-| H5-fix-1 — flags en `generate_osrm_fixture.py` | B | H5 | 1 h | Sí |
-| H5-fix-2 — regenerar v3 (N≥300) | B | H5 | 1 h (con Docker) | Sí |
-| H5-fix-3 — bootstrap/outliers sobre v3 | B | H5 | 0.5 h | Sí |
-| H5-eval-95 — verificación final + accept ADR | A+B | H5 | 0.5 h | — |
+| Tarea | Ruta | Hito | Bloqueante CP-01a-95 | Estado |
+|---|---|---|:---:|:---:|
+| H4-cal-1 — `factor_calibracion=0.85` | A | H4 | Sí | ✅ |
+| H4-cal-2 — turn penalties en A* | A | H4 | Sí | ✅ |
+| H4-cal-eval — verificar CP-01c | A | H4 | Sí | ✅ |
+| H5-cal-3 — snap-to-edge | A | H5 | Sí (ADR-0011 §V/L#5 lo exige) | ✅ (ADR-0021) |
+| H5-fix-1 — flags en `generate_osrm_fixture.py` | B | H5 | Sí | ✅ |
+| H5-fix-2 — regenerar v3 (N≥300) | B | H5 | Sí | ✅ (300 pares) |
+| H5-fix-3 — bootstrap/outliers sobre v3 | B | H5 | Sí | ✅ |
+| H5-eval-95 — verificación final + accept ADR | A+B | H5 | — | ✅ (CP-01a-95 cumplido) |
 
 **Total estimado**: 15-19 h distribuidas entre H4 y H5.
 

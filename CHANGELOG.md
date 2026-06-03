@@ -7,6 +7,17 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — H5-fix + H5-eval-95: fixture v3 (Ruta B) y cierre de CP-01a-95 (2026-06-02)
+- **H5-fix-1** — `tools/generate_osrm_fixture.py` extendido con `--modo {basesxincidentes, cartesiano}` y `--n-objetivo`. El modo `cartesiano` (nuevo) genera una grilla 8×8 de anclas sobre el bbox `(-71.45, -30.10, -71.15, -29.85)` + jitter amplio (`0.01°` ≈ 1.1 km) en ambos extremos: cubre todo el bbox con rutas largas inter-comuna, frente al modo `basesxincidentes` (default, fixture v2) anclado al clúster urbano. El fixture marca `version: "3"` y `modo`.
+- **H5-fix-2** — Nuevo fixture committeado [`core-python/tests/fixtures/osrm_oracle_v3.json`](core-python/tests/fixtures/osrm_oracle_v3.json): 300 pares contra OSRM 5.27.1 Docker (`tools/build_osrm_oracle.sh`). El v2 (`osrm_oracle.json`) se mantiene intacto para preservar la línea histórica del experimento.
+- **H5-fix-3** — `tools/bootstrap_cp01a.py` y `tools/analyze_outliers.py` hechos robustos a `NoRutaDisponibleError`: los pares que OSRM rutea (snapeando anclas oceánicas a la costa) pero el grafo propio no conecta (componentes desconectados) se cuentan como **miss** definitivo / outlier de conectividad, no se descartan (evita survivorship bias). El render de ambos scripts se parametrizó por N. Re-corridos sobre v3: [bootstrap-cp01a-v3.md](docs/quality/bootstrap-cp01a-v3.md) + [outliers-cp01a-v3.md](docs/quality/outliers-cp01a-v3.md) (18 clasificados + 13 irruteables / 300).
+- **H5-eval-95** — **CP-01a-95 ✅ CUMPLIDO** sobre el fixture v3 (A* operativo, snap-to-node, B=1000, semilla 2026): fracción dentro de ±30 % = **0.897**, **IC95 inferior 0.860 ≥ 0.75**, **P(fracción ≥ 0.75) = 100 % ≥ 0.95**. El margen estrecho de v2 (78/100, IC95 inf 69) era un artefacto del sesgo a rutas urbanas cortas (ADR-0011 §V/L#3): con rutas largas el error de snap se diluye. Nuevo test `test_routing_vs_osrm.py::test_cp01a_95_fixture_v3` (`slow`, fuera del CI rápido).
+
+### Changed — H5-fix / H5-eval-95
+- [ADR-0016](docs/architecture/decisions/0016-camino-95-cp01a.md) promovido a `accepted` con §Resultado (eval-95) y tabla de tareas Ruta A+B completas.
+- [ADR-0011](docs/architecture/decisions/0011-reformulacion-criterio-it01.md) §V/L#5 marcado `RESUELTO` (margen estrecho era sesgo de muestra, no del A*).
+- `docs/quality/trazabilidad.md`: RF-03 + sección IT-01 con el cierre CP-01a-95.
+
 ### Added — H5-cal-3: snap-to-edge + recalibración CP-01c' + ADR-0021 (2026-05-28)
 - Nuevo módulo [`domain/routing/geometria.py`](core-python/src/sentinel_dispatch/domain/routing/geometria.py): `proyectar_en_polilinea(punto, polilinea)` proyecta un punto (lat, lon) sobre la polilínea de una arista en un plano métrico local equirectangular, devolviendo el punto más cercano, la distancia y la fracción recorrida. 13 UT en [`test_geometria.py`](core-python/tests/unit/domain/routing/test_geometria.py).
 - Nuevo módulo experimental [`domain/routing/a_estrella_snap_edge.py`](core-python/src/sentinel_dispatch/domain/routing/a_estrella_snap_edge.py): A* con **nodos virtuales** origen (`-1`) y destino (`-2`) inyectados sobre las aristas más cercanas vía decorador `_GrafoConPuntosVirtuales`; reusa `a_estrella_calibrado` como motor. Elimina la inflación de ruta del snap-to-node. Tipo `PosicionEnArista` y protocolo `GrafoVialConSnapEdge` agregados en `domain/routing/tipos.py` y `grafo_vial.py`. 23 UT.
