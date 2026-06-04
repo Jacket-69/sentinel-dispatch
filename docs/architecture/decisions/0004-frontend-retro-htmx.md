@@ -7,9 +7,12 @@ date: 2026-05-06
 deferred-date: 2026-05-15
 deciders: Benjamin López
 tags: [adr, frontend, ux, deferred]
+reactivado-por: 0022
 ---
 
 # ADR 0004 — Frontend retro CRT/phosphor con HTMX + Tailwind + Leaflet
+
+> **▶ REACTIVADO el 2026-06-03 por ADR-0022** — el frontend se rescata como bonus de F5; ver [ADR-0022](0022-rescate-frontend-htmx.md) para el alcance incremental.
 
 > **⏸ DEFERRED el 2026-05-15 — fuera de scope v1, opcional para F5.**
 >
