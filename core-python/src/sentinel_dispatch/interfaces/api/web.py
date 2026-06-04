@@ -16,14 +16,25 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from sentinel_dispatch.adapters.grafo_osmnx import OsmnxGrafoVial, cargar_grafo_iv_region
 from sentinel_dispatch.adapters.repositorio_jsonl import JsonlRepositorioEventos
-from sentinel_dispatch.domain.dispatch.tipos import EstadoUnidad, TipoUnidad
+from sentinel_dispatch.application.despachar_ambulancia import despachar
+from sentinel_dispatch.application.serializacion import serializar_resultado_despacho
+from sentinel_dispatch.domain.dispatch.tipos import (
+    EstadoUnidad,
+    Incidente,
+    TipoUnidad,
+    Unidad,
+)
+from sentinel_dispatch.domain.routing.tipos import NodoFueraDeRangoError
 from sentinel_dispatch.domain.triaje import (
     CategoriaMPDS,
     GrupoEtario,
@@ -33,6 +44,9 @@ from sentinel_dispatch.domain.triaje import (
     clasificar_mpds,
 )
 from sentinel_dispatch.ports.repositorio_eventos import EventoLog, TipoEvento
+
+if TYPE_CHECKING:
+    from sentinel_dispatch.domain.routing.grafo_vial import GrafoVial
 
 _DIR_BASE = Path(__file__).parent
 DIRECTORIO_PLANTILLAS = _DIR_BASE / "templates"
@@ -259,3 +273,105 @@ async def vista_log(
             "vista_activa": "log",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Despacho con mapa (RF-07) — ADR-0022
+# ---------------------------------------------------------------------------
+
+_GRAPH_PATH = _MONOREPO_ROOT / "data" / "graphs" / "coquimbo.graphml"
+
+
+def _cargar_flota() -> list[Unidad]:
+    """Construye la flota de :class:`Unidad` del dominio desde el dataset."""
+    datos = json.loads(_UNIDADES_PATH.read_text(encoding="utf-8"))
+    return [
+        Unidad(
+            id=d["id"],
+            patente=d["patente"],
+            tipo=TipoUnidad(d["tipo"]),
+            base_nombre=d["base_nombre"],
+            base_lat=float(d["base_lat"]),
+            base_lon=float(d["base_lon"]),
+            estado=EstadoUnidad(d["estado"]),
+        )
+        for d in datos
+    ]
+
+
+def cargar_grafo_despacho() -> GrafoVial:
+    """Carga el grafo OSM de la IV Región (lifespan del arranque).
+
+    Operación pesada (~segundos, cientos de MB): se ejecuta una sola vez
+    al arrancar el servidor y se guarda en ``app.state`` (ver ``main.py``).
+    """
+    return OsmnxGrafoVial(cargar_grafo_iv_region(ruta_cache=_GRAPH_PATH))
+
+
+def obtener_grafo(request: Request) -> GrafoVial:
+    """Dependencia: el grafo cacheado en ``app.state``.
+
+    Los tests sobreescriben esta dependencia con un ``GrafoVial`` fake vía
+    ``app.dependency_overrides`` para no cargar los 21 MB del grafo real.
+    """
+    grafo = getattr(request.app.state, "grafo", None)
+    if grafo is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Grafo OSM no disponible (el servidor aún está cargándolo).",
+        )
+    return cast("GrafoVial", grafo)
+
+
+@router.get("/consola/despacho", response_class=HTMLResponse)
+async def vista_despacho(request: Request) -> HTMLResponse:
+    """Página del despacho con mapa: ubicar incidente y ver la ruta A* (RF-07)."""
+    return plantillas.TemplateResponse(
+        request=request, name="despacho.html", context={"vista_activa": "despacho"}
+    )
+
+
+@router.post("/consola/despacho/despachar")
+async def ejecutar_despacho(
+    request: Request,
+    lat: float = Form(...),
+    lon: float = Form(...),
+    categoria_mpds: CategoriaMPDS = Form(...),
+    grafo: GrafoVial = Depends(obtener_grafo),
+) -> dict[str, Any]:
+    """Despacha la mejor unidad para el incidente clickeado y devuelve JSON.
+
+    Reutiliza ``serializar_resultado_despacho`` (ADR-0017) y le anexa un
+    bloque ``geo`` con coordenadas listas para Leaflet (orden ``[lat, lon]``):
+    incidente, base de la unidad elegida, ruta A* y distancia de snap (RN-09).
+    """
+    try:
+        nodo_incidente = grafo.nodo_mas_cercano(lat, lon)
+    except NodoFueraDeRangoError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"mensaje": str(exc), "lat": lat, "lon": lon},
+        ) from exc
+
+    incidente = Incidente(
+        id="I-CONSOLA",
+        lat=lat,
+        lon=lon,
+        categoria_mpds=categoria_mpds,
+        timestamp_iso=datetime.now(UTC).isoformat(),
+    )
+    resultado = despachar(incidente, _cargar_flota(), grafo)
+
+    payload = serializar_resultado_despacho(resultado)
+    unidad_base = (
+        [resultado.elegida.base_lat, resultado.elegida.base_lon]
+        if resultado.elegida is not None
+        else None
+    )
+    payload["geo"] = {
+        "incidente": [lat, lon],
+        "unidad_base": unidad_base,
+        "ruta": [list(grafo.coordenadas(n)) for n in resultado.ruta_nodos],
+        "snap_m": round(grafo.distancia_snap_m(lat, lon, nodo_incidente), 1),
+    }
+    return payload
