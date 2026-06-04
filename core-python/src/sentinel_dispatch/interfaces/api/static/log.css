@@ -1,0 +1,258 @@
+/* =========================================================
+   log.css — Vista "Registro de Eventos"
+   Complementa crt.css. No redefine :root, body ni .scanlines.
+   Tokens de color vienen de crt.css (:root).
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   Encabezado de la vista de log
+   --------------------------------------------------------- */
+.log-titulo {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  text-shadow: var(--glow-phosphor);
+  animation: glow-pulse 3s ease-in-out infinite;
+  margin-bottom: 0.25rem;
+}
+
+.log-titulo::after {
+  content: '█';
+  display: inline-block;
+  margin-left: 0.15em;
+  animation: blink-cursor 1s step-end infinite;
+}
+
+.log-subtitulo {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 1.75rem;
+}
+
+/* ---------------------------------------------------------
+   Barra de conteo superior
+   --------------------------------------------------------- */
+.log-barra-conteo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+  border: 1px solid var(--dim);
+  border-bottom: none;
+  padding: 0.3rem 0.9rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+}
+
+.log-barra-conteo .log-prompt {
+  color: var(--dim);
+  margin-right: 0.4em;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------
+   Contenedor de scroll — la "pantalla" del log
+   --------------------------------------------------------- */
+.log-consola {
+  background: var(--bg);
+  border: 1px solid var(--phosphor);
+  box-shadow: 0 0 14px rgba(0, 255, 65, 0.1), inset 0 0 30px rgba(0, 0, 0, 0.5);
+  max-height: 28rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem 0;
+  position: relative;
+}
+
+/* Scrollbar fina estilo terminal */
+.log-consola::-webkit-scrollbar {
+  width: 5px;
+}
+
+.log-consola::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.log-consola::-webkit-scrollbar-thumb {
+  background: var(--phosphor);
+  border-radius: 0;
+  box-shadow: 0 0 4px var(--phosphor);
+}
+
+.log-consola::-webkit-scrollbar-thumb:hover {
+  background: var(--phosphor);
+  box-shadow: var(--glow-phosphor);
+}
+
+/* Firefox */
+.log-consola {
+  scrollbar-width: thin;
+  scrollbar-color: var(--phosphor) var(--bg);
+}
+
+/* ---------------------------------------------------------
+   Línea individual de evento
+   --------------------------------------------------------- */
+.evento {
+  display: grid;
+  grid-template-columns:
+    /* timestamp  */ minmax(10rem, auto)
+    /* separador  */ 1rem
+    /* tipo       */ minmax(8rem, auto)
+    /* ids        */ minmax(11rem, auto)
+    /* resumen    */ minmax(0, 1fr)
+    /* operador   */ minmax(7rem, auto);
+  align-items: baseline;
+  column-gap: 0.7rem;
+  padding: 0.22rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.83rem;
+  line-height: 1.5;
+  border-left: 3px solid transparent;
+  transition: background 0.08s ease;
+  white-space: nowrap;
+}
+
+/* Permite que cada celda encoja bajo su contenido (evita el solapamiento
+   y habilita el ellipsis del resumen). */
+.evento > * {
+  min-width: 0;
+}
+
+.evento:hover {
+  background: rgba(0, 255, 65, 0.05);
+}
+
+/* Timestamp — siempre en --dim */
+.evento-ts {
+  color: var(--dim);
+  font-size: 0.8rem;
+}
+
+/* Separador decorativo */
+.evento-sep {
+  color: var(--dim);
+  text-align: center;
+  user-select: none;
+}
+
+/* Tipo del evento — mayúsculas, coloreado por token via borde + propio */
+.evento-tipo {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+
+/* IDs — dimmed */
+.evento-ids {
+  color: var(--dim);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Resumen — color heredado del evento, tono más suave */
+.evento-resumen {
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Operador — al margen, dimmed */
+.evento-operador {
+  color: var(--dim);
+  font-size: 0.78rem;
+  text-align: right;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------
+   Variantes de token — borde izquierdo + color del tipo
+   --------------------------------------------------------- */
+.evento--ok {
+  border-left-color: var(--phosphor);
+  color: var(--phosphor);
+}
+
+.evento--ok .evento-tipo {
+  color: var(--phosphor);
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.6);
+}
+
+.evento--warn {
+  border-left-color: var(--amber);
+  color: rgba(255, 176, 0, 0.9);
+}
+
+.evento--warn .evento-tipo {
+  color: var(--amber);
+  text-shadow: 0 0 6px rgba(255, 176, 0, 0.5);
+}
+
+.evento--crit {
+  border-left-color: var(--crit);
+  color: rgba(255, 0, 60, 0.9);
+}
+
+.evento--crit .evento-tipo {
+  color: var(--crit);
+  text-shadow: 0 0 6px rgba(255, 0, 60, 0.6);
+}
+
+.evento--crit:hover {
+  background: rgba(255, 0, 60, 0.06);
+}
+
+.evento--info {
+  border-left-color: var(--dim);
+  color: var(--dim);
+}
+
+.evento--info .evento-tipo {
+  color: var(--dim);
+}
+
+/* ---------------------------------------------------------
+   Estado vacío
+   --------------------------------------------------------- */
+.log-vacio {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  letter-spacing: 0.05em;
+  color: var(--dim);
+  opacity: 0.7;
+  user-select: none;
+}
+
+.log-vacio::before {
+  content: '░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░';
+  display: block;
+  margin-bottom: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  color: var(--dim);
+  opacity: 0.35;
+}
+
+.log-vacio::after {
+  content: '░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░';
+  display: block;
+  margin-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  color: var(--dim);
+  opacity: 0.35;
+}

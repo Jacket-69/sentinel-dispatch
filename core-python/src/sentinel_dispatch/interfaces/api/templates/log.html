@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}LOG — SENTINEL-DISPATCH{% endblock %}
+
+{% block extra_head %}<link rel="stylesheet" href="/static/log.css">{% endblock %}
+
+{% block consola_clase %}consola--ancha{% endblock %}
+
+{% block content %}
+
+<header>
+  <h1 class="log-titulo">REGISTRO DE EVENTOS</h1>
+  <p class="log-subtitulo">// LOG JSONL APPEND-ONLY — AUDITORÍA (RF-06)</p>
+</header>
+
+<section>
+
+  <div class="log-barra-conteo">
+    <span>
+      <span class="log-prompt">$</span>
+      {{ eventos|length }} EVENTOS
+    </span>
+    <span class="dimmed">// JSONL · APPEND-ONLY · RF-06</span>
+  </div>
+
+  <div class="log-consola" role="log" aria-live="polite" aria-label="Registro de eventos del sistema">
+
+    {% if eventos %}
+
+      {% for e in eventos %}
+      <div class="evento evento--{{ e.token }}" role="listitem">
+        <span class="evento-ts">[{{ e.timestamp }}]</span>
+        <span class="evento-sep">·</span>
+        <span class="evento-tipo">{{ e.tipo }}</span>
+        <span class="evento-ids">INC {{ e.incidente_id }} / DSP {{ e.despacho_id }}</span>
+        <span class="evento-resumen">{{ e.resumen }}</span>
+        <span class="evento-operador">{{ e.operador }}</span>
+      </div>
+      {% endfor %}
+
+    {% else %}
+
+      <div class="log-vacio">
+        // SIN EVENTOS REGISTRADOS — ejecuta:<br>
+        sentinel run-dataset --log-eventos &lt;ruta&gt;
+      </div>
+
+    {% endif %}
+
+  </div>
+
+</section>
+
+{% endblock %}
