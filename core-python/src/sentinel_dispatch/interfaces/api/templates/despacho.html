@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}DESPACHO — SENTINEL-DISPATCH{% endblock %}
+
+{% block consola_clase %}consola--ancha{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/despacho.css">
+{% endblock %}
+
+{% block content %}
+
+<header class="despacho-header">
+  <h1 class="consola-titulo">CONSOLA DE DESPACHO</h1>
+  <p class="consola-subtitulo">// CLIC EN EL MAPA PARA UBICAR EL INCIDENTE — A* SOBRE OSM (RF-07)</p>
+</header>
+
+<div class="despacho-controles panel" data-titulo="PARÁMETROS">
+  <div class="controles-fila">
+
+    <div class="campo-categoria">
+      <label for="select-categoria">CATEGORÍA MPDS</label>
+      <select id="select-categoria" name="categoria_mpds">
+        <option value="Alpha">Alpha — Básico / sin riesgo vital</option>
+        <option value="Bravo">Bravo — Potencialmente inestable</option>
+        <option value="Charlie" selected>Charlie — Inestable controlado</option>
+        <option value="Delta">Delta — Inestable crítico</option>
+        <option value="Echo">Echo — Paro cardiorrespiratorio</option>
+      </select>
+    </div>
+
+    <div class="campo-coords">
+      <label>COORDENADAS</label>
+      <span id="coord-incidente" class="coords-display">// SIN UBICACIÓN</span>
+    </div>
+
+    <button id="btn-despachar" type="button" class="btn-despachar" disabled>
+      DESPACHAR ▶
+    </button>
+
+  </div>
+</div>
+
+<div id="mapa" role="application" aria-label="Mapa de la conurbación La Serena-Coquimbo"></div>
+
+<div id="panel-despacho" class="panel panel-resultado" data-titulo="RESULTADO">
+  <span class="placeholder">// ESPERANDO DESPACHO</span>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/despacho.js"></script>
+
+{% endblock %}
