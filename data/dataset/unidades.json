@@ -58,8 +58,8 @@
     "patente": "AMB-007",
     "tipo": "Avanzada",
     "base_nombre": "CESFAM Sergio Aguilar Delgado",
-    "base_lat": -29.9412,
-    "base_lon": -71.3047,
+    "base_lat": -29.9706,
+    "base_lon": -71.2632,
     "estado": "Disponible"
   },
   {
@@ -85,8 +85,8 @@
     "patente": "AMB-010",
     "tipo": "Básica",
     "base_nombre": "CESFAM El Sauce",
-    "base_lat": -29.9469,
-    "base_lon": -71.3262,
+    "base_lat": -29.9960,
+    "base_lon": -71.3361,
     "estado": "Disponible"
   }
 ]
