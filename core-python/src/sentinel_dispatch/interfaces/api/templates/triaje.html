@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}TRIAJE — SENTINEL-DISPATCH{% endblock %}
+
+{% block content %}
+
+<header>
+  <h1 class="consola-titulo">SENTINEL-DISPATCH // CONSOLA DE TRIAJE</h1>
+  <p class="consola-subtitulo">// SISTEMA DE CLASIFICACIÓN MPDS-SUBSET — INGRESO DE PARÁMETROS</p>
+</header>
+
+<div class="panel" data-titulo=" ÁRBOL MPDS ">
+
+  <form
+    hx-post="/consola/triaje/clasificar"
+    hx-target="#panel-resultado"
+    hx-swap="innerHTML"
+  >
+
+    <div class="campo">
+      <label for="consciente">¿Paciente consciente?</label>
+      <select id="consciente" name="consciente">
+        <option value="true" selected>Sí</option>
+        <option value="false">No</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="respira_normal">¿Respira con normalidad?</label>
+      <select id="respira_normal" name="respira_normal">
+        <option value="true" selected>Sí</option>
+        <option value="false">No</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="dificultad_respiratoria">¿Dificultad respiratoria?</label>
+      <select id="dificultad_respiratoria" name="dificultad_respiratoria">
+        <option value="true">Sí</option>
+        <option value="false" selected>No</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="sangrado">Nivel de sangrado</label>
+      <select id="sangrado" name="sangrado">
+        <option value="Ninguno" selected>Ninguno</option>
+        <option value="Moderado">Moderado</option>
+        <option value="Activo">Activo</option>
+        <option value="Peligroso">Peligroso</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="dolor_toracico">Dolor torácico</label>
+      <select id="dolor_toracico" name="dolor_toracico">
+        <option value="Ninguno" selected>Ninguno</option>
+        <option value="Presente">Presente</option>
+        <option value="Crítico">Crítico</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label for="grupo_etario">Grupo etario</label>
+      <select id="grupo_etario" name="grupo_etario">
+        <option value="Pediátrico">Pediátrico</option>
+        <option value="Adulto" selected>Adulto</option>
+        <option value="Anciano">Anciano</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn-clasificar">CLASIFICAR ▶</button>
+
+  </form>
+
+</div>
+
+<section>
+  <h2>// RESULTADO</h2>
+  <div id="panel-resultado">
+    <span class="placeholder dimmed">// ESPERANDO CLASIFICACIÓN</span>
+  </div>
+</section>
+
+{% endblock %}
