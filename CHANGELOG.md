@@ -7,6 +7,16 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — Consola web: scaffold + vista de Triaje (ADR-0022, 2026-06-03)
+- [ADR-0022](docs/architecture/decisions/0022-rescate-frontend-htmx.md) nuevo, `accepted`: **reactiva el frontend** (rescate de [ADR-0004](docs/architecture/decisions/0004-frontend-retro-htmx.md), `deferred`→reactivado) como bonus de F5, ahora que el desarrollo v1 está finiquitado y hay holgura. Construcción incremental, vista por vista; el informe v1.0 y el tag `v1.0.0-final` siguen siendo la prioridad de H5 y **no quedan desplazados**.
+- **Scaffold web HTMX + estética CRT/phosphor** servido por la misma FastAPI app (ADR-0002): nuevo router [`interfaces/api/web.py`](core-python/src/sentinel_dispatch/interfaces/api/web.py) montado en `main.py` (estáticos en `/static`). Plantillas Jinja2 (`templates/base.html`, `triaje.html`, `_resultado_triaje.html`) + hoja `static/crt.css` (paleta `--phosphor`/`--bg`/scanlines/glow, fuentes VT323 + JetBrains Mono y htmx 2.x vía CDN, sin build step ni Tailwind por ahora).
+- **Vista de Triaje (primera vista)**: `GET /consola/triaje` renderiza el formulario MPDS-subset (6 campos como `<select>`); `POST /consola/triaje/clasificar` construye `RespuestaTriaje`, delega en `clasificar_mpds` del dominio y devuelve un fragmento HTMX con la categoría y su severidad (token CSS `crit`/`amber`/`phosphor`/`dim`). `GET /` redirige a la consola. **Sin tocar dominio ni path operativo: RT-02 intacto, no se porta a Java.**
+- 8 tests de integración HTTP en [`test_api_consola_triaje.py`](core-python/tests/integration/test_api_consola_triaje.py) (Normal/Borde/Error sobre el árbol MPDS vía la capa web): Alpha/Echo/Delta/Charlie, enum inválido → 422, campo faltante → 422, GET 200 con el formulario, raíz → redirect. Suite Python **298** verde.
+
+### Changed — Consola web (ADR-0022)
+- `interfaces/api/main.py`: monta `/static` (StaticFiles) e incluye el router de la consola.
+- `pyproject.toml` (`[tool.ruff.lint.flake8-bugbear]`): inyectores de FastAPI (`Form`, `Depends`, `Query`, …) declarados como `extend-immutable-calls` para evitar el falso positivo B008 en defaults de argumento.
+
 ### Added — H5-fix + H5-eval-95: fixture v3 (Ruta B) y cierre de CP-01a-95 (2026-06-02)
 - **H5-fix-1** — `tools/generate_osrm_fixture.py` extendido con `--modo {basesxincidentes, cartesiano}` y `--n-objetivo`. El modo `cartesiano` (nuevo) genera una grilla 8×8 de anclas sobre el bbox `(-71.45, -30.10, -71.15, -29.85)` + jitter amplio (`0.01°` ≈ 1.1 km) en ambos extremos: cubre todo el bbox con rutas largas inter-comuna, frente al modo `basesxincidentes` (default, fixture v2) anclado al clúster urbano. El fixture marca `version: "3"` y `modo`.
 - **H5-fix-2** — Nuevo fixture committeado [`core-python/tests/fixtures/osrm_oracle_v3.json`](core-python/tests/fixtures/osrm_oracle_v3.json): 300 pares contra OSRM 5.27.1 Docker (`tools/build_osrm_oracle.sh`). El v2 (`osrm_oracle.json`) se mantiene intacto para preservar la línea histórica del experimento.

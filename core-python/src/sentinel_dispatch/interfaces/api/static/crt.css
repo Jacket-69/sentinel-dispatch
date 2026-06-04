@@ -1,0 +1,382 @@
+/* =========================================================
+   Sentinel-Dispatch — Consola CRT/phosphor
+   Paleta y efectos definidos en ADR-0004.
+   Sin build step. Sin framework. CSS puro.
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   Variables globales
+   --------------------------------------------------------- */
+:root {
+  --bg:       #0a0a0a;
+  --phosphor: #00ff41;
+  --amber:    #ffb000;
+  --crit:     #ff003c;
+  --panel:    #1a1a1a;
+  --dim:      #005c20;
+
+  --font-display: 'VT323', monospace;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', monospace;
+
+  --glow-phosphor: 0 0 8px var(--phosphor), 0 0 16px rgba(0, 255, 65, 0.35);
+  --glow-amber:    0 0 8px var(--amber),    0 0 16px rgba(255, 176, 0, 0.35);
+  --glow-crit:     0 0 8px var(--crit),     0 0 16px rgba(255, 0, 60, 0.35);
+  --glow-dim:      0 0 8px var(--dim);
+}
+
+/* ---------------------------------------------------------
+   Reset mínimo
+   --------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------------------------------------------------------
+   Base
+   --------------------------------------------------------- */
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background-color: var(--bg);
+  color: var(--phosphor);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+/* ---------------------------------------------------------
+   Overlay de scanlines — cubre toda la ventana, fijo
+   --------------------------------------------------------- */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.18) 2px,
+    rgba(0, 0, 0, 0.18) 4px
+  );
+}
+
+/* ---------------------------------------------------------
+   Animaciones
+   --------------------------------------------------------- */
+@keyframes flicker {
+  0%,  19%,  21%,  23%,  25%,  54%,  56%,  100% { opacity: 1; }
+  20%,  22%,  24%,  55% { opacity: 0.99; }
+}
+
+@keyframes blink-cursor {
+  0%, 49%  { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { text-shadow: var(--glow-phosphor); }
+  50%       { text-shadow: 0 0 4px var(--phosphor); }
+}
+
+/* ---------------------------------------------------------
+   Contenedor principal
+   --------------------------------------------------------- */
+main.consola {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  animation: flicker 8s infinite;
+}
+
+/* ---------------------------------------------------------
+   Encabezados
+   --------------------------------------------------------- */
+.consola-titulo {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  text-shadow: var(--glow-phosphor);
+  animation: glow-pulse 3s ease-in-out infinite;
+  margin-bottom: 0.25rem;
+}
+
+.consola-titulo::after {
+  content: '█';
+  display: inline-block;
+  margin-left: 0.15em;
+  animation: blink-cursor 1s step-end infinite;
+}
+
+.consola-subtitulo {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 2rem;
+}
+
+h2, h3 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--phosphor);
+  text-shadow: var(--glow-phosphor);
+}
+
+h2 { font-size: 1.6rem; margin-bottom: 1rem; }
+h3 { font-size: 1.2rem; margin-bottom: 0.75rem; }
+
+/* ---------------------------------------------------------
+   Panel base — estilo terminal con bordes Unicode
+   --------------------------------------------------------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--phosphor);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.12), inset 0 0 24px rgba(0, 0, 0, 0.4);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.panel::before {
+  content: '╔' attr(data-titulo) '══';
+  display: block;
+  position: absolute;
+  top: -0.65em;
+  left: 1rem;
+  background: var(--panel);
+  padding: 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  text-shadow: var(--glow-phosphor);
+}
+
+/* ---------------------------------------------------------
+   Formulario — etiquetas
+   --------------------------------------------------------- */
+.campo {
+  margin-bottom: 1.1rem;
+}
+
+label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  margin-bottom: 0.3rem;
+}
+
+label::before {
+  content: '▸ ';
+  color: var(--dim);
+}
+
+/* ---------------------------------------------------------
+   Formulario — select
+   --------------------------------------------------------- */
+select {
+  display: block;
+  width: 100%;
+  background: var(--panel);
+  color: var(--phosphor);
+  border: 1px solid var(--phosphor);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  padding: 0.45rem 0.75rem;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%2300ff41'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.25rem;
+}
+
+select:focus {
+  border-color: var(--phosphor);
+  box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.3), var(--glow-phosphor);
+}
+
+select option {
+  background: var(--bg);
+  color: var(--phosphor);
+}
+
+/* ---------------------------------------------------------
+   Formulario — botón submit
+   --------------------------------------------------------- */
+.btn-clasificar {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.6rem 2rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  background: transparent;
+  border: 2px solid var(--phosphor);
+  cursor: pointer;
+  text-shadow: var(--glow-phosphor);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn-clasificar:hover,
+.btn-clasificar:focus {
+  background: var(--phosphor);
+  color: var(--bg);
+  box-shadow: var(--glow-phosphor);
+  outline: none;
+}
+
+.btn-clasificar:active {
+  background: var(--dim);
+  box-shadow: none;
+}
+
+/* htmx: indicador de carga mientras espera respuesta */
+.btn-clasificar.htmx-request {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ---------------------------------------------------------
+   Panel de resultado — contenedor receptor htmx
+   --------------------------------------------------------- */
+#panel-resultado {
+  background: var(--panel);
+  border: 1px solid var(--dim);
+  padding: 1.25rem 1.5rem;
+  min-height: 5rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--dim);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+#panel-resultado .placeholder {
+  letter-spacing: 0.04em;
+}
+
+/* ---------------------------------------------------------
+   Fragmento de resultado — cuatro variantes de severidad
+   --------------------------------------------------------- */
+.resultado {
+  padding: 1rem 1.25rem;
+  border: 1px solid currentColor;
+  position: relative;
+}
+
+.resultado-categoria {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px currentColor, 0 0 24px rgba(255,255,255,0.08);
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+
+.resultado-descripcion {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.resultado-label {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-bottom: 0.15rem;
+}
+
+/* Variante phosphor (Alpha / Bravo / Charlie) */
+.resultado--phosphor {
+  color: var(--phosphor);
+  box-shadow: 0 0 14px rgba(0, 255, 65, 0.18), inset 0 0 12px rgba(0, 255, 65, 0.05);
+}
+
+/* Variante amber (Bravo / Charlie urgente) */
+.resultado--amber {
+  color: var(--amber);
+  box-shadow: 0 0 14px rgba(255, 176, 0, 0.22), inset 0 0 12px rgba(255, 176, 0, 0.05);
+}
+
+/* Variante crit (Delta / Echo) */
+.resultado--crit {
+  color: var(--crit);
+  box-shadow: 0 0 14px rgba(255, 0, 60, 0.28), inset 0 0 12px rgba(255, 0, 60, 0.07);
+  animation: flicker 2.5s infinite;
+}
+
+/* Variante dim (inclasificable / datos insuficientes) */
+.resultado--dim {
+  color: var(--dim);
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------
+   Separador de sección
+   --------------------------------------------------------- */
+.sep {
+  border: none;
+  border-top: 1px solid var(--dim);
+  margin: 1.5rem 0;
+}
+
+/* ---------------------------------------------------------
+   Barra de estado inferior
+   --------------------------------------------------------- */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border-top: 1px solid var(--dim);
+  padding: 0.25rem 1rem;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  display: flex;
+  gap: 2rem;
+  z-index: 100;
+}
+
+.status-bar .status-ok {
+  color: var(--phosphor);
+}
+
+/* ---------------------------------------------------------
+   Utilidades
+   --------------------------------------------------------- */
+.glow   { text-shadow: var(--glow-phosphor); }
+.upper  { text-transform: uppercase; }
+.mono   { font-family: var(--font-mono); }
+.dimmed { color: var(--dim); }

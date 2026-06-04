@@ -99,6 +99,20 @@ allowed-confusables = ["α", "β", "×", "→", "·", "−"]
 "tests/**" = ["S101", "S106"]
 "scripts/**" = ["S603", "S607"]
 
+[tool.ruff.lint.flake8-bugbear]
+# Los inyectores de FastAPI se usan como defaults de argumento por diseño
+# (se evalúan una sola vez al importar); B008 es un falso positivo aquí.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

@@ -1,11 +1,13 @@
 """Entry point FastAPI de Sentinel-Dispatch.
 
-Stub inicial — expone /healthz, /readyz y el validador de coordenadas
-RF-01 / RN-01 (CP-09). La lógica de despacho se agrega conforme avancen
-los módulos triaje, routing y dispatch.
+Expone los probes operacionales (/healthz, /readyz), el validador de
+coordenadas RF-01 / RN-01 (CP-09) y la **consola web del operador**
+(ADR-0022, rescate de ADR-0004): estáticos en /static y las vistas HTMX
+montadas desde :mod:`sentinel_dispatch.interfaces.api.web`.
 """
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from sentinel_dispatch import __version__
@@ -17,12 +19,17 @@ from sentinel_dispatch.domain.incidente.validacion import (
     CoordenadasFueraDeRangoError,
     validar_coordenadas_iv_region,
 )
+from sentinel_dispatch.interfaces.api import web
 
 app = FastAPI(
     title="Sentinel-Dispatch",
     description="Motor de despacho eficiente para unidades de emergencia médica.",
     version=__version__,
 )
+
+# Consola web del operador (ADR-0022): estáticos CRT + vistas HTMX.
+app.mount("/static", StaticFiles(directory=str(web.DIRECTORIO_ESTATICOS)), name="static")
+app.include_router(web.router)
 
 
 class CoordenadasIncidente(BaseModel):
