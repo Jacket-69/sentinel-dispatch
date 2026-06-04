@@ -27,14 +27,19 @@ from sentinel_dispatch.interfaces.api import web
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Carga el grafo OSM una vez al arranque (vista de despacho, ADR-0022).
+    """Inicializa el estado de la consola al arranque (vista de despacho, ADR-0022).
 
-    Operación pesada (~segundos); se guarda en ``app.state.grafo`` y se
-    expone vía la dependencia ``web.obtener_grafo``. No corre bajo
-    ``ASGITransport`` sin LifespanManager, por lo que los tests que no
-    necesitan el grafo no pagan su costo.
+    Carga el grafo OSM (~segundos), precomputa el wireframe de calles
+    principales, crea el repositorio de eventos (log) y el overlay en memoria
+    de estados de la flota. No corre bajo ``ASGITransport`` sin LifespanManager,
+    por lo que los tests inyectan estos recursos vía ``app.dependency_overrides``
+    / ``app.state`` sin pagar el costo del grafo real.
     """
-    app.state.grafo = web.cargar_grafo_despacho()
+    grafo = web.cargar_grafo_despacho()
+    app.state.grafo = grafo
+    app.state.red_vial = grafo.calles_principales()
+    app.state.repo_eventos = web.crear_repositorio_eventos()
+    app.state.estados_unidades = {}
     yield
 
 

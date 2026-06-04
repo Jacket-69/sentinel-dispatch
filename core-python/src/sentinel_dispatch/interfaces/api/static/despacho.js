@@ -20,7 +20,9 @@
   /* -----------------------------------------------------------
      Constantes
      ----------------------------------------------------------- */
-  const ENDPOINT = '/consola/despacho/despachar';
+  const ENDPOINT       = '/consola/despacho/despachar';
+  const ENDPOINT_RED   = '/consola/despacho/red-vial';
+  const ENDPOINT_RESET = '/consola/despacho/reset';
   const BOUNDS_SW = [-30.10, -71.45];
   const BOUNDS_NE = [-29.85, -71.15];
   const COLOR_PHOSPHOR = '#00ff41';
@@ -50,9 +52,41 @@
   /* Sin tile layer: fondo negro lo aporta el CSS del contenedor. */
 
   /* -----------------------------------------------------------
+     Wireframe de la red vial — capa de fondo, debajo de ruta y marcadores
+     ----------------------------------------------------------- */
+  /* Pane dedicado con zIndex bajo el overlayPane (400): el wireframe queda
+     siempre detrás de la ruta y los marcadores, sin depender del timing
+     del fetch. pointer-events:none evita que intercepte clics del mapa. */
+  map.createPane('wireframe');
+  map.getPane('wireframe').style.zIndex = 250;
+  map.getPane('wireframe').style.pointerEvents = 'none';
+
+  (async function cargarRedVial() {
+    try {
+      const res = await fetch(ENDPOINT_RED);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!Array.isArray(data.calles)) return;
+      data.calles.forEach(function (puntos) {
+        if (!Array.isArray(puntos) || puntos.length < 2) return;
+        L.polyline(puntos, {
+          pane:        'wireframe',
+          color:       'rgba(0,255,65,0.25)',
+          weight:      1,
+          opacity:     0.5,
+          interactive: false,
+        }).addTo(map);
+      });
+    } catch (_) {
+      /* Sin wireframe: la vista continúa operativa */
+    }
+  })();
+
+  /* -----------------------------------------------------------
      Referencias DOM
      ----------------------------------------------------------- */
   const btnDespachar    = document.getElementById('btn-despachar');
+  const btnReset        = document.getElementById('btn-reset');
   const coordDisplay    = document.getElementById('coord-incidente');
   const panelDespacho   = document.getElementById('panel-despacho');
   const selectCategoria = document.getElementById('select-categoria');
@@ -81,6 +115,17 @@
   function limpiarCapasPrevias() {
     if (polylineRuta) { map.removeLayer(polylineRuta); polylineRuta = null; }
     if (marcadorUnidad) { map.removeLayer(marcadorUnidad); marcadorUnidad = null; }
+  }
+
+  /**
+   * Limpieza total del mapa y del estado: quita ruta, unidad e incidente.
+   * El wireframe de fondo no se toca.
+   */
+  function limpiarTodo() {
+    limpiarCapasPrevias();
+    if (marcadorIncidente) { map.removeLayer(marcadorIncidente); marcadorIncidente = null; }
+    latIncidente = null;
+    lonIncidente = null;
   }
 
   /**
@@ -206,6 +251,10 @@
         weight: 2,
       }).addTo(map);
     }
+
+    /* Los puntos deben quedar visibles sobre la línea de la ruta */
+    if (marcadorIncidente) { marcadorIncidente.bringToFront(); }
+    if (marcadorUnidad)    { marcadorUnidad.bringToFront(); }
   }
 
   /* -----------------------------------------------------------
@@ -235,7 +284,8 @@
     coordDisplay.textContent = `${latStr}, ${lonStr}`;
     coordDisplay.classList.add('activo');
 
-    /* Habilitar botón de despacho */
+    /* Habilitar despacho: recolocar el incidente reabre un despacho
+       (un incidente = un despacho hasta que el operador lo mueva). */
     btnDespachar.disabled = false;
   });
 
@@ -268,7 +318,7 @@
         body:    body.toString(),
       });
     } catch (err) {
-      /* Error de red */
+      /* Error de red: el despacho no se concretó, se puede reintentar */
       setPanelVariante('critico');
       panelDespacho.innerHTML =
         `<span class="resultado-motivo">ERROR DE RED — ${err.message}</span>`;
@@ -278,7 +328,6 @@
     }
 
     btnDespachar.classList.remove('cargando');
-    btnDespachar.disabled = false;
 
     /* --- 200 OK -------------------------------------------- */
     if (respuesta.ok) {
@@ -289,6 +338,7 @@
         setPanelVariante('critico');
         panelDespacho.innerHTML =
           '<span class="resultado-motivo">RESPUESTA INVÁLIDA DEL SERVIDOR</span>';
+        btnDespachar.disabled = false;
         return;
       }
 
@@ -301,22 +351,33 @@
 
       /* Renderizar el panel */
       renderizarResultado(datos);
+
+      /* Idempotencia por incidente: si se asignó unidad, el botón queda
+         deshabilitado hasta que el operador recoloque el incidente. En
+         saturación (sin unidad) se permite reintentar. */
+      const huboUnidad = datos.unidad_seleccionada && datos.motivo !== 'saturacion';
+      btnDespachar.disabled = !!huboUnidad;
       return;
     }
 
-    /* --- 422 Coordenadas fuera de región ------------------- */
+    /* --- 422: fuera de región (detail.mensaje) o validación (detail array) */
     if (respuesta.status === 422) {
-      let detalle;
+      let detalle = 'COORDENADAS FUERA DEL ÁREA DE COBERTURA';
       try {
         const cuerpo = await respuesta.json();
-        detalle = cuerpo?.detail?.mensaje ?? JSON.stringify(cuerpo.detail);
+        if (Array.isArray(cuerpo?.detail)) {
+          detalle = 'PARÁMETROS INVÁLIDOS';
+        } else if (typeof cuerpo?.detail?.mensaje === 'string') {
+          detalle = cuerpo.detail.mensaje;
+        }
       } catch (_) {
-        detalle = 'COORDENADAS FUERA DEL ÁREA DE COBERTURA';
+        /* Conserva el fallback fijo */
       }
       limpiarCapasPrevias();
       setPanelVariante('critico');
       panelDespacho.innerHTML =
         `<span class="resultado-motivo">${detalle}</span>`;
+      btnDespachar.disabled = false;
       return;
     }
 
@@ -324,6 +385,41 @@
     setPanelVariante('critico');
     panelDespacho.innerHTML =
       `<span class="resultado-motivo">ERROR ${respuesta.status} — ${respuesta.statusText}</span>`;
+    btnDespachar.disabled = false;
+  });
+
+  /* -----------------------------------------------------------
+     Interacción: botón REINICIAR FLOTA
+     ----------------------------------------------------------- */
+  btnReset.addEventListener('click', async function () {
+    btnReset.disabled = true;
+
+    try {
+      const res = await fetch(ENDPOINT_RESET, { method: 'POST' });
+      if (!res.ok) {
+        setPanelVariante('advertencia');
+        panelDespacho.innerHTML =
+          `<span class="resultado-motivo">RESET FALLIDO — ${res.status} ${res.statusText}</span>`;
+        btnReset.disabled = false;
+        return;
+      }
+    } catch (err) {
+      setPanelVariante('advertencia');
+      panelDespacho.innerHTML =
+        `<span class="resultado-motivo">ERROR DE RED AL REINICIAR — ${err.message}</span>`;
+      btnReset.disabled = false;
+      return;
+    }
+
+    /* Limpiar estado local y UI; el wireframe de fondo no se toca */
+    limpiarTodo();
+    map.fitBounds([BOUNDS_SW, BOUNDS_NE]);
+    setPanelVariante('');
+    panelDespacho.innerHTML = '<span class="placeholder">// ESPERANDO DESPACHO</span>';
+    coordDisplay.textContent = '// SIN UBICACIÓN';
+    coordDisplay.classList.remove('activo');
+    btnDespachar.disabled = true;
+    btnReset.disabled = false;
   });
 
 })();

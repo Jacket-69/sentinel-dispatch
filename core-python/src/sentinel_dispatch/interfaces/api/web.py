@@ -14,6 +14,7 @@ inyecta en ``#panel-resultado`` sin recargar la página.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -43,7 +44,11 @@ from sentinel_dispatch.domain.triaje import (
     RespuestaTriaje,
     clasificar_mpds,
 )
-from sentinel_dispatch.ports.repositorio_eventos import EventoLog, TipoEvento
+from sentinel_dispatch.ports.repositorio_eventos import (
+    EventoDuplicadoError,
+    EventoLog,
+    TipoEvento,
+)
 
 if TYPE_CHECKING:
     from sentinel_dispatch.domain.routing.grafo_vial import GrafoVial
@@ -55,6 +60,14 @@ DIRECTORIO_ESTATICOS = _DIR_BASE / "static"
 plantillas = Jinja2Templates(directory=str(DIRECTORIO_PLANTILLAS))
 
 router = APIRouter(tags=["consola"])
+
+_log = logging.getLogger(__name__)
+
+
+def _ahora_iso_z() -> str:
+    """Timestamp UTC ISO 8601 con sufijo ``Z`` (formato congelado en ADR-0018)."""
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
 
 # Presentación por categoría: token de severidad CSS + descripción breve para
 # el operador. Las descripciones replican la semántica MPDS documentada en
@@ -175,16 +188,17 @@ class _EventoVM:
     token: str
 
 
-def _cargar_unidades() -> list[_UnidadVM]:
+def _cargar_unidades(estados: dict[str, EstadoUnidad]) -> list[_UnidadVM]:
     """Lee la flota desde el dataset y la proyecta a vista-modelos.
 
-    Los estados son los declarados en ``unidades.json``; v1 no modela
-    evolución temporal de la flota, así que el panel refleja ese estado.
+    El estado base viene de ``unidades.json``; ``estados`` (overlay en
+    memoria) lo sobreescribe para reflejar los despachos hechos desde la
+    consola (unidad → ``EnRuta``) hasta el reset.
     """
     datos = json.loads(_UNIDADES_PATH.read_text(encoding="utf-8"))
     unidades: list[_UnidadVM] = []
     for d in datos:
-        estado = EstadoUnidad(d["estado"])
+        estado = estados.get(d["id"], EstadoUnidad(d["estado"]))
         unidades.append(
             _UnidadVM(
                 id=d["id"],
@@ -249,13 +263,33 @@ def _evento_vm(evento: EventoLog) -> _EventoVM:
     )
 
 
+def obtener_estados_unidades(request: Request) -> dict[str, EstadoUnidad]:
+    """Dependencia: overlay en memoria de estados de la flota (consola viva).
+
+    v1 no persiste estado de unidades; este overlay vive en ``app.state`` y
+    refleja los despachos hechos desde la consola (unidad → ``EnRuta``) hasta
+    el reset. Los tests lo controlan vía ``app.state.estados_unidades``.
+    """
+    estados = getattr(request.app.state, "estados_unidades", None)
+    if estados is None:
+        estados = {}
+        request.app.state.estados_unidades = estados
+    return cast("dict[str, EstadoUnidad]", estados)
+
+
 @router.get("/consola/unidades", response_class=HTMLResponse)
-async def vista_unidades(request: Request) -> HTMLResponse:
-    """Panel de la flota: tabla de unidades con su estado (RF-09)."""
+async def vista_unidades(
+    request: Request,
+    estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
+) -> HTMLResponse:
+    """Panel de la flota: tabla de unidades con su estado (RF-09).
+
+    Refleja el overlay en memoria (los despachos hechos desde la consola).
+    """
     return plantillas.TemplateResponse(
         request=request,
         name="unidades.html",
-        context={"unidades": _cargar_unidades(), "vista_activa": "unidades"},
+        context={"unidades": _cargar_unidades(estados), "vista_activa": "unidades"},
     )
 
 
@@ -282,8 +316,13 @@ async def vista_log(
 _GRAPH_PATH = _MONOREPO_ROOT / "data" / "graphs" / "coquimbo.graphml"
 
 
-def _cargar_flota() -> list[Unidad]:
-    """Construye la flota de :class:`Unidad` del dominio desde el dataset."""
+def _cargar_flota(estados: dict[str, EstadoUnidad]) -> list[Unidad]:
+    """Construye la flota del dominio desde el dataset, aplicando el overlay.
+
+    ``estados`` sobreescribe el estado declarado: una unidad marcada
+    ``EnRuta`` por un despacho previo queda excluida de la selección
+    (``despachar`` solo elige unidades ``Disponible``), simulando flota viva.
+    """
     datos = json.loads(_UNIDADES_PATH.read_text(encoding="utf-8"))
     return [
         Unidad(
@@ -293,19 +332,32 @@ def _cargar_flota() -> list[Unidad]:
             base_nombre=d["base_nombre"],
             base_lat=float(d["base_lat"]),
             base_lon=float(d["base_lon"]),
-            estado=EstadoUnidad(d["estado"]),
+            estado=estados.get(d["id"], EstadoUnidad(d["estado"])),
         )
         for d in datos
     ]
 
 
-def cargar_grafo_despacho() -> GrafoVial:
+def cargar_grafo_despacho() -> OsmnxGrafoVial:
     """Carga el grafo OSM de la IV Región (lifespan del arranque).
 
     Operación pesada (~segundos, cientos de MB): se ejecuta una sola vez
     al arrancar el servidor y se guarda en ``app.state`` (ver ``main.py``).
     """
     return OsmnxGrafoVial(cargar_grafo_iv_region(ruta_cache=_GRAPH_PATH))
+
+
+def crear_repositorio_eventos() -> JsonlRepositorioEventos:
+    """Crea el repositorio JSONL de eventos para el log de la consola.
+
+    El despacho desde el mapa escribe un evento ``despacho_creado`` aquí, lo
+    que sincroniza la vista de log. Se instancia una sola vez al arranque
+    (lifespan) para que el generador de ``evento_id`` sea monotónico entre
+    requests y el dedupe por id funcione.
+    """
+    ruta = _ruta_log_eventos()
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    return JsonlRepositorioEventos(ruta)
 
 
 def obtener_grafo(request: Request) -> GrafoVial:
@@ -323,12 +375,55 @@ def obtener_grafo(request: Request) -> GrafoVial:
     return cast("GrafoVial", grafo)
 
 
+def obtener_red_vial(request: Request) -> list[list[tuple[float, float]]]:
+    """Dependencia: polilíneas de calles principales precomputadas (wireframe)."""
+    return cast(
+        "list[list[tuple[float, float]]]",
+        getattr(request.app.state, "red_vial", []),
+    )
+
+
+def obtener_repositorio_eventos(request: Request) -> JsonlRepositorioEventos | None:
+    """Dependencia: el repositorio de eventos, o ``None`` si no está disponible.
+
+    Los tests lo sobreescriben con un fake en memoria; sin override y sin
+    lifespan (ASGITransport) devuelve ``None`` y el despacho no escribe al log.
+    """
+    return cast("JsonlRepositorioEventos | None", getattr(request.app.state, "repo_eventos", None))
+
+
 @router.get("/consola/despacho", response_class=HTMLResponse)
 async def vista_despacho(request: Request) -> HTMLResponse:
     """Página del despacho con mapa: ubicar incidente y ver la ruta A* (RF-07)."""
     return plantillas.TemplateResponse(
         request=request, name="despacho.html", context={"vista_activa": "despacho"}
     )
+
+
+def _registrar_despacho(repo: JsonlRepositorioEventos, core: dict[str, Any]) -> None:
+    """Escribe un evento ``despacho_creado`` al log (best-effort).
+
+    No aborta el despacho si el log falla. El payload reutiliza el dict de
+    ``serializar_resultado_despacho`` (ADR-0017), el mismo shape que produce el
+    CLI ``run-dataset --log-eventos``; el ``despacho_id`` sigue la convención
+    ``SD-<YYYYMMDD>-<seq>`` del CLI.
+    """
+    evento_id = repo.generar_evento_id()
+    evento = EventoLog(
+        evento_id=evento_id,
+        timestamp_iso=_ahora_iso_z(),
+        tipo=TipoEvento.DESPACHO_CREADO,
+        despacho_id=f"SD-{datetime.now(UTC).strftime('%Y%m%d')}-{evento_id.rsplit('-', 1)[-1]}",
+        incidente_id=str(core.get("incidente_id", "I-CONSOLA")),
+        operador="consola_web",
+        payload=core,
+    )
+    try:
+        repo.append(evento)
+    except EventoDuplicadoError:
+        # Colisión de evento_id (raro: mismo segundo tras reinicio). No se aborta
+        # el despacho, pero se deja traza para que la omisión sea observable.
+        _log.warning("evento_log.duplicado_omitido", extra={"evento_id": evento_id})
 
 
 @router.post("/consola/despacho/despachar")
@@ -338,12 +433,16 @@ async def ejecutar_despacho(
     lon: float = Form(...),
     categoria_mpds: CategoriaMPDS = Form(...),
     grafo: GrafoVial = Depends(obtener_grafo),
+    repo: JsonlRepositorioEventos | None = Depends(obtener_repositorio_eventos),
+    estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
 ) -> dict[str, Any]:
     """Despacha la mejor unidad para el incidente clickeado y devuelve JSON.
 
     Reutiliza ``serializar_resultado_despacho`` (ADR-0017) y le anexa un
-    bloque ``geo`` con coordenadas listas para Leaflet (orden ``[lat, lon]``):
-    incidente, base de la unidad elegida, ruta A* y distancia de snap (RN-09).
+    bloque ``geo`` con coordenadas Leaflet (``[lat, lon]``). Además mantiene
+    la consola "viva": marca la unidad elegida como ``EnRuta`` en el overlay
+    (queda excluida del próximo despacho) y registra un ``despacho_creado``
+    en el log JSONL si hay repositorio disponible.
     """
     try:
         nodo_incidente = grafo.nodo_mas_cercano(lat, lon)
@@ -358,20 +457,48 @@ async def ejecutar_despacho(
         lat=lat,
         lon=lon,
         categoria_mpds=categoria_mpds,
-        timestamp_iso=datetime.now(UTC).isoformat(),
+        timestamp_iso=_ahora_iso_z(),
     )
-    resultado = despachar(incidente, _cargar_flota(), grafo)
+    resultado = despachar(incidente, _cargar_flota(estados), grafo)
+    core = serializar_resultado_despacho(resultado)
 
-    payload = serializar_resultado_despacho(resultado)
+    # El overlay es estado mutable compartido. Bajo el uvicorn single-worker de
+    # v1 no hay race: entre leer la flota y escribir el overlay no hay ``await``.
+    # Si se introduce concurrencia/await aquí, envolver con un lock por-app.
+    if resultado.elegida is not None:
+        estados[resultado.elegida.id] = EstadoUnidad.EN_RUTA
+    if repo is not None:
+        _registrar_despacho(repo, core)
+
     unidad_base = (
         [resultado.elegida.base_lat, resultado.elegida.base_lon]
         if resultado.elegida is not None
         else None
     )
-    payload["geo"] = {
-        "incidente": [lat, lon],
-        "unidad_base": unidad_base,
-        "ruta": [list(grafo.coordenadas(n)) for n in resultado.ruta_nodos],
-        "snap_m": round(grafo.distancia_snap_m(lat, lon, nodo_incidente), 1),
+    return {
+        **core,
+        "geo": {
+            "incidente": [lat, lon],
+            "unidad_base": unidad_base,
+            "ruta": [list(grafo.coordenadas(n)) for n in resultado.ruta_nodos],
+            "snap_m": round(grafo.distancia_snap_m(lat, lon, nodo_incidente), 1),
+        },
     }
-    return payload
+
+
+@router.get("/consola/despacho/red-vial")
+async def red_vial(
+    calles: list[list[tuple[float, float]]] = Depends(obtener_red_vial),
+) -> dict[str, list[list[tuple[float, float]]]]:
+    """Polilíneas de las calles principales para el wireframe del mapa (RF-07)."""
+    return {"calles": calles}
+
+
+@router.post("/consola/despacho/reset")
+async def reset_flota(
+    estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
+) -> dict[str, int]:
+    """Libera la flota: limpia el overlay (todas vuelven al estado del dataset)."""
+    liberadas = len(estados)
+    estados.clear()
+    return {"unidades_liberadas": liberadas}

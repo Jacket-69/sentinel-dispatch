@@ -288,3 +288,44 @@
 .aviso-suboptimo::before {
   content: '▲ ';
 }
+
+/* Botón REINICIAR FLOTA */
+.btn-reset {
+  flex: 0 0 auto;
+  padding: 0.55rem 1.4rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: transparent;
+  border: 2px solid var(--amber);
+  cursor: pointer;
+  text-shadow: 0 0 8px rgba(255, 176, 0, 0.5);
+  box-shadow: 0 0 8px rgba(255, 176, 0, 0.12);
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.btn-reset:hover:not(:disabled),
+.btn-reset:focus:not(:disabled) {
+  background: var(--amber);
+  color: var(--bg);
+  box-shadow: 0 0 14px rgba(255, 176, 0, 0.5);
+  outline: none;
+}
+
+.btn-reset:active:not(:disabled) {
+  background: rgba(255, 176, 0, 0.35);
+  box-shadow: none;
+}
+
+.btn-reset:disabled {
+  color: var(--dim);
+  border-color: var(--dim);
+  text-shadow: none;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.45;
+}
