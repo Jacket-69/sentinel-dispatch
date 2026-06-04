@@ -5,12 +5,20 @@ El grafo OSM real (21 MB) se sustituye por un ``GrafoVial`` fake inyectado vía
 el A* real produzca una ruta de dos nodos, sin cargar el grafo de producción.
 """
 
+from typing import ClassVar
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from sentinel_dispatch.domain.dispatch.tipos import EstadoUnidad
 from sentinel_dispatch.domain.routing.tipos import Arista, NodoFueraDeRangoError
 from sentinel_dispatch.interfaces.api.main import app
-from sentinel_dispatch.interfaces.api.web import obtener_grafo
+from sentinel_dispatch.interfaces.api.web import (
+    obtener_grafo,
+    obtener_red_vial,
+    obtener_repositorio_eventos,
+)
+from sentinel_dispatch.ports.repositorio_eventos import EventoLog, TipoEvento
 
 _CLICK_LAT = -29.95
 _CLICK_LON = -71.30
@@ -28,7 +36,10 @@ class _GrafoFake:
 
     _NODO_BASE = 1
     _NODO_INCIDENTE = 99
-    _COORDS = {1: (-29.9077, -71.2535), 99: (_CLICK_LAT, _CLICK_LON)}
+    _COORDS: ClassVar[dict[int, tuple[float, float]]] = {
+        1: (-29.9077, -71.2535),
+        99: (_CLICK_LAT, _CLICK_LON),
+    }
 
     def nodo_mas_cercano(self, lat: float, lon: float) -> int:
         if abs(lat - _CLICK_LAT) < 1e-4 and abs(lon - _CLICK_LON) < 1e-4:
@@ -63,6 +74,21 @@ class _GrafoFueraDeRango:
 
     def distancia_snap_m(self, lat: float, lon: float, nodo: int) -> float:
         return 0.0
+
+
+class _RepoFake:
+    """Repositorio de eventos en memoria para verificar la escritura al log."""
+
+    def __init__(self) -> None:
+        self.eventos: list[EventoLog] = []
+        self._seq = 0
+
+    def generar_evento_id(self) -> str:
+        self._seq += 1
+        return f"EVT-TEST-{self._seq:04d}"
+
+    def append(self, evento: EventoLog) -> None:
+        self.eventos.append(evento)
 
 
 @pytest.mark.asyncio
@@ -129,3 +155,106 @@ async def test_despacho_sin_grafo_cargado_devuelve_503() -> None:
     async with _cliente() as client:
         response = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
     assert response.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_despacho_marca_unidad_en_ruta() -> None:
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    async with _cliente() as client:
+        response = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
+    assert response.status_code == 200
+    elegida = response.json()["unidad_seleccionada"]["id"]
+    # El overlay en app.state quedó con la unidad elegida en EnRuta.
+    assert app.state.estados_unidades[elegida] is EstadoUnidad.EN_RUTA
+
+
+@pytest.mark.asyncio
+async def test_despacho_escribe_evento_en_log() -> None:
+    repo = _RepoFake()
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    app.dependency_overrides[obtener_repositorio_eventos] = lambda: repo
+    async with _cliente() as client:
+        response = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
+    assert response.status_code == 200
+    assert len(repo.eventos) == 1
+    evento = repo.eventos[0]
+    assert evento.tipo is TipoEvento.DESPACHO_CREADO
+    assert evento.incidente_id == "I-CONSOLA"
+    assert evento.payload["motivo"] == response.json()["motivo"]
+
+
+@pytest.mark.asyncio
+async def test_panel_refleja_unidad_en_ruta() -> None:
+    app.state.estados_unidades = {"U01": EstadoUnidad.EN_RUTA}
+    async with _cliente() as client:
+        response = await client.get("/consola/unidades")
+    assert response.status_code == 200
+    cuerpo = response.text
+    assert "fila--enruta" in cuerpo
+    assert "fila--disponible" in cuerpo  # el resto sigue disponible
+
+
+@pytest.mark.asyncio
+async def test_reset_libera_la_flota() -> None:
+    app.state.estados_unidades = {
+        "U01": EstadoUnidad.EN_RUTA,
+        "U02": EstadoUnidad.EN_RUTA,
+    }
+    async with _cliente() as client:
+        response = await client.post("/consola/despacho/reset")
+    assert response.status_code == 200
+    assert response.json()["unidades_liberadas"] == 2
+    assert app.state.estados_unidades == {}
+
+
+@pytest.mark.asyncio
+async def test_red_vial_devuelve_calles() -> None:
+    calles = [[(-29.90, -71.25), (-29.91, -71.26)]]
+    app.dependency_overrides[obtener_red_vial] = lambda: calles
+    async with _cliente() as client:
+        response = await client.get("/consola/despacho/red-vial")
+    assert response.status_code == 200
+    assert response.json()["calles"] == [[[-29.90, -71.25], [-29.91, -71.26]]]
+
+
+@pytest.mark.asyncio
+async def test_despacho_con_flota_saturada_no_elige_unidad() -> None:
+    # Toda la flota EnRuta → no hay Disponibles → saturación.
+    ids = [f"U{n:02d}" for n in range(1, 11)]
+    app.state.estados_unidades = dict.fromkeys(ids, EstadoUnidad.EN_RUTA)
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    async with _cliente() as client:
+        response = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["unidad_seleccionada"] is None
+    assert body["motivo"] == "saturacion"
+    assert body["geo"]["ruta"] == []
+    assert body["geo"]["unidad_base"] is None
+
+
+@pytest.mark.asyncio
+async def test_despachos_consecutivos_consumen_la_flota() -> None:
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    async with _cliente() as client:
+        r1 = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
+        r2 = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    u1 = r1.json()["unidad_seleccionada"]["id"]
+    u2 = r2.json()["unidad_seleccionada"]["id"]
+    # La primera unidad quedó EnRuta y se excluyó de la segunda selección.
+    assert u1 != u2
+    assert app.state.estados_unidades[u1] is EstadoUnidad.EN_RUTA
+    assert app.state.estados_unidades[u2] is EstadoUnidad.EN_RUTA
+
+
+@pytest.mark.asyncio
+async def test_reset_reincorpora_la_flota_al_pool() -> None:
+    app.state.estados_unidades = {"U06": EstadoUnidad.EN_RUTA}
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    async with _cliente() as client:
+        await client.post("/consola/despacho/reset")
+        response = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
+    assert response.status_code == 200
+    assert response.json()["unidad_seleccionada"] is not None
