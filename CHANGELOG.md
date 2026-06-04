@@ -7,6 +7,13 @@ Versionado: una entrada por **entrega académica** del semestre (no SemVer estri
 
 ## [Unreleased]
 
+### Added — Consola web: panel de unidades + vista de log (ADR-0022, 2026-06-03)
+- **Panel de unidades (RF-09)**: `GET /consola/unidades` renderiza la flota de `data/dataset/unidades.json` como tabla terminal CRT (ID, patente, tipo, base, posición, estado). El color por estado (`disponible`/`enruta`/`enescena`/`taller`) se resuelve en el backend (`_TOKEN_ESTADO`) y la plantilla solo pinta la clase `fila--<token>`. v1 muestra el estado declarado en el dataset (sin evolución temporal de la flota).
+- **Vista de log (RF-06)**: `GET /consola/log` lee el log JSONL append-only vía `JsonlRepositorioEventos` y lo muestra como consola de auditoría scrollable. El path se resuelve por env `SENTINEL_EVENTOS_LOG` (default `data/_runtime/eventos.jsonl`); si no existe, estado vacío. El color por tipo de evento (`ok`/`warn`/`crit`/`info`) y un resumen derivado del `payload` (shape ADR-0017) se calculan en el backend. La carga de eventos es una dependencia FastAPI (testeable vía `app.dependency_overrides`).
+- **Barra de navegación CRT** compartida en `base.html` (triaje · unidades · log) con marca de vista activa, bloque `extra_head` para CSS por vista, y modificador de layout `consola--ancha` (1200px) para las vistas con tablas densas.
+- 5 tests de integración en [`test_api_consola_panel_log.py`](core-python/tests/integration/test_api_consola_panel_log.py): panel 200 con las 10 unidades + nav activa, mapeo estado→token completo, log con eventos (tokens + resumen del payload), estado vacío, y loader real sin archivo. Suite Python **303** verde.
+- **Sin tocar dominio ni path operativo: RT-02 intacto, no se porta a Java.**
+
 ### Added — Consola web: scaffold + vista de Triaje (ADR-0022, 2026-06-03)
 - [ADR-0022](docs/architecture/decisions/0022-rescate-frontend-htmx.md) nuevo, `accepted`: **reactiva el frontend** (rescate de [ADR-0004](docs/architecture/decisions/0004-frontend-retro-htmx.md), `deferred`→reactivado) como bonus de F5, ahora que el desarrollo v1 está finiquitado y hay holgura. Construcción incremental, vista por vista; el informe v1.0 y el tag `v1.0.0-final` siguen siendo la prioridad de H5 y **no quedan desplazados**.
 - **Scaffold web HTMX + estética CRT/phosphor** servido por la misma FastAPI app (ADR-0002): nuevo router [`interfaces/api/web.py`](core-python/src/sentinel_dispatch/interfaces/api/web.py) montado en `main.py` (estáticos en `/static`). Plantillas Jinja2 (`templates/base.html`, `triaje.html`, `_resultado_triaje.html`) + hoja `static/crt.css` (paleta `--phosphor`/`--bg`/scanlines/glow, fuentes VT323 + JetBrains Mono y htmx 2.x vía CDN, sin build step ni Tailwind por ahora).

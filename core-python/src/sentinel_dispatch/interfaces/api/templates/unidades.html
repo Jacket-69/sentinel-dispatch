@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}UNIDADES — SENTINEL-DISPATCH{% endblock %}
+
+{% block extra_head %}<link rel="stylesheet" href="/static/unidades.css">{% endblock %}
+
+{% block consola_clase %}consola--ancha{% endblock %}
+
+{% block content %}
+
+<header class="unidades-header">
+  <h1 class="consola-titulo">PANEL DE UNIDADES</h1>
+  <p class="consola-subtitulo">// FLOTA SAMU — IV REGIÓN — ESTADO ACTUAL</p>
+</header>
+
+<div class="barra-flota">
+  <span class="recuento">{{ unidades|length }} UNIDADES</span>
+  <span>// REGISTRO EN TIEMPO REAL</span>
+</div>
+
+<div class="tabla-unidades-wrap">
+  <table class="tabla-unidades" aria-label="Estado de la flota SAMU">
+    <thead>
+      <tr>
+        <th scope="col">ID</th>
+        <th scope="col">PATENTE</th>
+        <th scope="col">TIPO</th>
+        <th scope="col">BASE</th>
+        <th scope="col">POSICIÓN</th>
+        <th scope="col">ESTADO</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if unidades %}
+        {% for u in unidades %}
+        <tr class="fila--{{ u.estado_token }}">
+          <td class="col-id">{{ u.id }}</td>
+          <td>{{ u.patente }}</td>
+          <td>{{ u.tipo }}</td>
+          <td>{{ u.base_nombre }}</td>
+          <td class="col-pos">{{ '%.4f'|format(u.base_lat) }}, {{ '%.4f'|format(u.base_lon) }}</td>
+          <td>
+            <span class="estado-badge">{{ u.estado }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr class="fila-vacia">
+          <td colspan="6">// SIN UNIDADES REGISTRADAS</td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
