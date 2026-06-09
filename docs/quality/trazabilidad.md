@@ -73,10 +73,10 @@ Aunque las RN-01..RN-10 del SRS no nombran explícitamente el árbol, el dominio
 
 | Requisito | Módulo asociado | Cobertura actual | Estado |
 |---|---|---|---|
-| **RT-01** Núcleo de cálculo en Python y Java | `core-python/` + `core-java/` | Python: `domain/triaje/` ✅. Java: esqueleto Maven con `Main.java` + `SmokeTest.java` 🟡 | 🟡 H3-J |
-| **RT-02** Resultados equivalentes dentro de tolerancia | `tools/compare_outputs.py` | Validador implementado; sin datos a comparar hasta que el core Java sea funcional | 🟡 post-H3-J |
-| **RT-03** Documentar diferencias detectadas | SRS sec. 2.16 ("Diferencias previsibles") + reporte automático | Diferencias previsibles documentadas; reporte automático pendiente | 🟡 H4 |
-| **RT-04** Justificar implementación más adecuada | Informe final (H5) | Tabla comparativa preparada en SRS sec. 2.16 ("Justificación de adecuación") | 🟡 H5 |
+| **RT-01** Núcleo de cálculo en Python y Java | `core-python/` + `core-java/` | Python: `domain/{triaje,routing,dispatch}/` ✅. Java: núcleo funcional (triaje + A\* sobre JGraphT + función de costo + CLI espejo), **186 tests JUnit verdes** | ✅ |
+| **RT-02** Resultados equivalentes dentro de tolerancia | [`tools/compare_outputs.py`](../../tools/compare_outputs.py) (job CI `compare`) | Ambos cores ejecutan el dataset y `compare_outputs.py` verifica la paridad: **12/12 OK · 0 WARN · 0 FAIL · bit-exacto** sobre rutas A\* y ETAs | ✅ |
+| **RT-03** Documentar diferencias detectadas | [ADR-0017](../architecture/decisions/0017-contrato-jsonl-validacion-dual.md) + SRS sec. 2.16 + reporte automático | Asimetría de grafos documentada en ADR-0017 (Python `MultiDiGraph` vs Java deduplica por menor `longitudM`); reporte automático en [`rt-validation-report.md`](rt-validation-report.md) que emite el job `compare` | ✅ |
+| **RT-04** Justificar implementación más adecuada | Informe final v1.0 (H5) | Tabla comparativa preparada en SRS sec. 2.16; la justificación formal se consolida en el **informe v1.0** | 🟡 H5 |
 
 ## 5. Cobertura de la pauta — pruebas por módulo
 
