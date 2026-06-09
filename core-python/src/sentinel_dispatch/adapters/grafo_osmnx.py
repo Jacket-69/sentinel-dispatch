@@ -355,6 +355,83 @@ class OsmnxGrafoVial:
                     candidatas.append((u, v, data))
         return candidatas
 
+    # -----------------------------------------------------------------------
+    # Wireframe de calles principales (ADR-0022)
+    # -----------------------------------------------------------------------
+
+    def calles_principales(self) -> list[list[tuple[float, float]]]:
+        """Polilíneas de las vías principales del grafo, para el wireframe del mapa.
+
+        Filtra las aristas cuyo tag ``highway`` pertenece al conjunto:
+        ``{"motorway", "trunk", "primary", "secondary", "tertiary"}`` y sus
+        variantes ``_link``. Las 42 k aristas completas del grafo de Coquimbo
+        son prohibitivas en el navegador; este subconjunto (~6,8 k segmentos)
+        cubre la trama de calles con nombre sin lagear el mapa (ADR-0022).
+
+        Cada arista que supera el filtro se representa como un **segmento
+        recto** de dos puntos ``[(lat_u, lon_u), (lat_v, lon_v)]`` (no se usa
+        la geometría curva OSMnx para mantener la respuesta liviana).
+
+        El ``MultiDiGraph`` de OSMnx tiene tanto ``u→v`` como ``v→u``; la
+        deduplicación es por ``frozenset({u, v})`` para no dibujar el mismo
+        segmento dos veces en el wireframe.
+
+        OSM puede almacenar ``highway`` como un ``str`` o como una ``list[str]``
+        (cuando la vía comparte más de un rol). Ambos casos se manejan: si es
+        lista, basta que alguno de sus valores sea principal.
+
+        Si un nodo extremo carece de coordenadas, la arista se omite
+        silenciosamente.
+
+        Retorna
+        -------
+        list[list[tuple[float, float]]]
+            Lista de polilíneas. Cada elemento es ``[(lat_u, lon_u), (lat_v, lon_v)]``.
+        """
+        highway_principales: frozenset[str] = frozenset(
+            {
+                "motorway",
+                "motorway_link",
+                "trunk",
+                "trunk_link",
+                "primary",
+                "primary_link",
+                "secondary",
+                "secondary_link",
+                "tertiary",
+                "tertiary_link",
+            }
+        )
+
+        def _es_principal(highway: Any) -> bool:
+            if isinstance(highway, list):
+                return any(h in highway_principales for h in highway)
+            return highway in highway_principales
+
+        vistas: set[frozenset[int]] = set()
+        resultado: list[list[tuple[float, float]]] = []
+        nodos = self.grafo.nodes
+
+        for u, v, data in self.grafo.edges(data=True):
+            highway = data.get("highway")
+            if not _es_principal(highway):
+                continue
+
+            clave = frozenset({int(u), int(v)})
+            if clave in vistas:
+                continue
+            vistas.add(clave)
+
+            try:
+                lat_u, lon_u = float(nodos[u]["y"]), float(nodos[u]["x"])
+                lat_v, lon_v = float(nodos[v]["y"]), float(nodos[v]["x"])
+            except (KeyError, TypeError):
+                continue
+
+            resultado.append([(lat_u, lon_u), (lat_v, lon_v)])
+
+        return resultado
+
     def _vertices_latlon(self, u: int, v: int, data: Any) -> list[tuple[float, float]]:
         """Vértices ``(lat, lon)`` de la arista, en orden ``u → v``.
 

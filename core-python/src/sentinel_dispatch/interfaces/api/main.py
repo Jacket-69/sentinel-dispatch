@@ -6,6 +6,9 @@ coordenadas RF-01 / RN-01 (CP-09) y la **consola web del operador**
 montadas desde :mod:`sentinel_dispatch.interfaces.api.web`.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -21,10 +24,30 @@ from sentinel_dispatch.domain.incidente.validacion import (
 )
 from sentinel_dispatch.interfaces.api import web
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Inicializa el estado de la consola al arranque (vista de despacho, ADR-0022).
+
+    Carga el grafo OSM (~segundos), precomputa el wireframe de calles
+    principales, crea el repositorio de eventos (log) y el overlay en memoria
+    de estados de la flota. No corre bajo ``ASGITransport`` sin LifespanManager,
+    por lo que los tests inyectan estos recursos vía ``app.dependency_overrides``
+    / ``app.state`` sin pagar el costo del grafo real.
+    """
+    grafo = web.cargar_grafo_despacho()
+    app.state.grafo = grafo
+    app.state.red_vial = grafo.calles_principales()
+    app.state.repo_eventos = web.crear_repositorio_eventos()
+    app.state.estados_unidades = {}
+    yield
+
+
 app = FastAPI(
     title="Sentinel-Dispatch",
     description="Motor de despacho eficiente para unidades de emergencia médica.",
     version=__version__,
+    lifespan=lifespan,
 )
 
 # Consola web del operador (ADR-0022): estáticos CRT + vistas HTMX.

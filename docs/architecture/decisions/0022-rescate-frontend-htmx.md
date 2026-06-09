@@ -116,6 +116,16 @@ El frontend **no toca el path operativo de despacho ni el dominio**. Agrega ruta
 FastAPI + templates sobre la capa `application/` existente. La paridad dual
 Python↔Java (RT-02, 12/12 OK) queda **intacta**: Java no porta templates.
 
+**Estado en memoria de la consola (desviación consciente de v1).** La vista de despacho
+mantiene un *overlay* en memoria (`app.state.estados_unidades`) que marca como `EnRuta`
+las unidades despachadas desde la consola, de modo que el panel lo refleje y un siguiente
+despacho no reelija la misma unidad. Es una conveniencia de la **capa de interfaces**
+para que la demo se sienta "viva"; **no persiste** (se pierde al reiniciar y se limpia con
+el botón Reset), **no modifica el dominio** (`Unidad` sigue siendo inmutable; el overlay
+solo cambia el `estado` con que se construyen los DTO al vuelo) y **no toca RT-02** (el CLI
+y la validación dual siguen leyendo el dataset estático). v1 sigue sin estado de flota
+persistente; formalizarlo sería trabajo de F4.
+
 RF-07 y RF-09 del SRS estaban diferidos por ADR-0004; este ADR los reactiva como bonus
 opcionales. No son requisitos de v1 y su no implementación no afecta la calificación.
 

@@ -1,0 +1,331 @@
+/* =============================================================
+   Sentinel-Dispatch — Vista de despacho con mapa Leaflet
+   Extiende crt.css; no redefine :root, body ni .scanlines.
+   ============================================================= */
+
+/* -------------------------------------------------------------
+   Encabezado de la vista
+   ------------------------------------------------------------- */
+.despacho-header {
+  margin-bottom: 1.5rem;
+}
+
+/* -------------------------------------------------------------
+   Panel de controles — fila horizontal
+   ------------------------------------------------------------- */
+.despacho-controles {
+  margin-bottom: 1rem;
+}
+
+.controles-fila {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Categoría MPDS */
+.campo-categoria {
+  flex: 0 0 auto;
+  min-width: 280px;
+}
+
+.campo-categoria label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  margin-bottom: 0.3rem;
+}
+
+.campo-categoria label::before {
+  content: '▸ ';
+  color: var(--dim);
+}
+
+.campo-categoria select {
+  width: 100%;
+}
+
+/* Coordenadas clickeadas */
+.campo-coords {
+  flex: 1 1 200px;
+}
+
+.campo-coords label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  margin-bottom: 0.3rem;
+}
+
+.campo-coords label::before {
+  content: '▸ ';
+  color: var(--dim);
+}
+
+.coords-display {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--dim);
+  letter-spacing: 0.05em;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--dim);
+  background: var(--panel);
+  min-height: 2.25rem;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.coords-display.activo {
+  color: var(--phosphor);
+  border-color: var(--phosphor);
+  text-shadow: var(--glow-phosphor);
+}
+
+/* Botón DESPACHAR */
+.btn-despachar {
+  flex: 0 0 auto;
+  padding: 0.55rem 1.75rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  background: transparent;
+  border: 2px solid var(--phosphor);
+  cursor: pointer;
+  text-shadow: var(--glow-phosphor);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.btn-despachar:hover:not(:disabled),
+.btn-despachar:focus:not(:disabled) {
+  background: var(--phosphor);
+  color: var(--bg);
+  box-shadow: var(--glow-phosphor);
+  outline: none;
+}
+
+.btn-despachar:active:not(:disabled) {
+  background: var(--dim);
+  box-shadow: none;
+}
+
+.btn-despachar:disabled {
+  color: var(--dim);
+  border-color: var(--dim);
+  text-shadow: none;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-despachar.cargando {
+  opacity: 0.7;
+  cursor: wait;
+  animation: glow-pulse 0.8s ease-in-out infinite;
+}
+
+/* -------------------------------------------------------------
+   Mapa Leaflet
+   ------------------------------------------------------------- */
+#mapa {
+  width: 100%;
+  height: 60vh;
+  min-height: 460px;
+  background: var(--bg);
+  border: 1px solid var(--phosphor);
+  box-shadow: 0 0 16px rgba(0, 255, 65, 0.15), inset 0 0 32px rgba(0, 0, 0, 0.5);
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+/* Leaflet sobreescribe background con blanco; se anula aquí */
+.leaflet-container {
+  background: var(--bg) !important;
+  font-family: var(--font-mono);
+}
+
+/* Controles de zoom — estética phosphor */
+.leaflet-control-zoom a {
+  background: var(--panel) !important;
+  color: var(--phosphor) !important;
+  border-color: var(--dim) !important;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--dim) !important;
+  color: var(--phosphor) !important;
+  box-shadow: var(--glow-phosphor);
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  border-color: var(--dim) !important;
+}
+
+/* Popup — si en algún momento se usa */
+.leaflet-popup-content-wrapper {
+  background: var(--panel);
+  color: var(--phosphor);
+  border: 1px solid var(--phosphor);
+  border-radius: 0;
+  box-shadow: var(--glow-phosphor);
+}
+
+.leaflet-popup-tip {
+  background: var(--panel);
+}
+
+/* -------------------------------------------------------------
+   Panel de resultado del despacho
+   ------------------------------------------------------------- */
+.panel-resultado {
+  min-height: 6rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--dim);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease;
+}
+
+.panel-resultado .placeholder {
+  letter-spacing: 0.04em;
+}
+
+/* Variante: despacho óptimo */
+.panel-resultado.resultado--optimo {
+  border-color: var(--phosphor);
+  color: var(--phosphor);
+  box-shadow: 0 0 14px rgba(0, 255, 65, 0.18), inset 0 0 12px rgba(0, 255, 65, 0.05);
+}
+
+/* Variante: advertencia / despacho subóptimo */
+.panel-resultado.resultado--advertencia {
+  border-color: var(--amber);
+  color: var(--amber);
+  box-shadow: 0 0 14px rgba(255, 176, 0, 0.22), inset 0 0 12px rgba(255, 176, 0, 0.05);
+}
+
+/* Variante: saturación / sin unidad / error */
+.panel-resultado.resultado--critico {
+  border-color: var(--crit);
+  color: var(--crit);
+  box-shadow: 0 0 14px rgba(255, 0, 60, 0.28), inset 0 0 12px rgba(255, 0, 60, 0.07);
+}
+
+/* Tabla interna del resultado */
+.resultado-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+}
+
+.resultado-tabla td {
+  padding: 0.2rem 0.6rem 0.2rem 0;
+  vertical-align: top;
+  font-size: 0.88rem;
+}
+
+.resultado-tabla .campo-label {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  white-space: nowrap;
+  padding-right: 1rem;
+  min-width: 160px;
+}
+
+.resultado-valor-grande {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.resultado-motivo {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.aviso-snap {
+  margin-top: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  background: rgba(255, 176, 0, 0.05);
+}
+
+.aviso-snap::before {
+  content: '⚠ ';
+}
+
+.aviso-suboptimo {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  opacity: 0.85;
+}
+
+.aviso-suboptimo::before {
+  content: '▲ ';
+}
+
+/* Botón REINICIAR FLOTA */
+.btn-reset {
+  flex: 0 0 auto;
+  padding: 0.55rem 1.4rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: transparent;
+  border: 2px solid var(--amber);
+  cursor: pointer;
+  text-shadow: 0 0 8px rgba(255, 176, 0, 0.5);
+  box-shadow: 0 0 8px rgba(255, 176, 0, 0.12);
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.btn-reset:hover:not(:disabled),
+.btn-reset:focus:not(:disabled) {
+  background: var(--amber);
+  color: var(--bg);
+  box-shadow: 0 0 14px rgba(255, 176, 0, 0.5);
+  outline: none;
+}
+
+.btn-reset:active:not(:disabled) {
+  background: rgba(255, 176, 0, 0.35);
+  box-shadow: none;
+}
+
+.btn-reset:disabled {
+  color: var(--dim);
+  border-color: var(--dim);
+  text-shadow: none;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.45;
+}
