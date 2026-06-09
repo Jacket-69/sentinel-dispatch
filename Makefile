@@ -39,7 +39,7 @@ test-dataset: ## Ejecutar dataset de 12 incidentes en ambos cores
 		             --out /tmp/java-out/"
 
 compare: ## Validación dual RT-02 — compara outputs Python vs Java
-	uv run python tools/compare_outputs.py \
+	uv run --no-project python tools/compare_outputs.py \
 		--python /tmp/python-out/ \
 		--java /tmp/java-out/ \
 		--report docs/quality/rt-validation-report.md
