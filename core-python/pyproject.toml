@@ -164,9 +164,7 @@ addopts = [
     "--strict-config",
     "--cov=sentinel_dispatch",
     "--cov-report=term-missing",
-    # Cobertura real post H3 + H3-J: 96%. Threshold en 90 deja margen
-    # holgado para H4 (log JSONL + exportador + simulación) sin falsas
-    # alarmas y previene regresiones silenciosas.
+    # Cobertura actual ~90.33%; el gate en 90 previene regresiones silenciosas.
     "--cov-fail-under=90",
 ]
 asyncio_mode = "auto"

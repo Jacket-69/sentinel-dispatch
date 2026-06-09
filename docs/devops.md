@@ -37,16 +37,15 @@ Pipeline en `.github/workflows/ci.yml`. Matriz dual desde H0 (Python + Java) por
 ### Etapas
 
 ```
-1. lint        (ruff check + format check ; spotless en Java)
-2. typecheck   (mypy)
-3. test        (pytest sin dataset/slow ; JUnit 5 en core-java)
-4. security    (gitleaks)
-5. dataset     (depende de test) — ejecuta los 12 incidentes en ambos cores
-6. compare     (depende de dataset) — tools/compare_outputs.py — RT-02
-7. report      (solo en push a main) — publica rt-validation-report.md
+python-lint        ruff check + ruff format --check
+python-typecheck   mypy
+python-test        pytest (sin dataset/slow) + cobertura ; needs [python-lint, python-typecheck]
+java-test          spotless:check + JUnit 5 (mvn verify) + JaCoCo
+compare            ambos cores sobre el dataset + tools/compare_outputs.py → rt-validation-report.md (RT-02) ; needs [python-test, java-test]
+security           gitleaks
 ```
 
-Test corre solo si lint y typecheck pasan. Falla cualquiera → cierra el PR.
+`python-test` corre solo si `python-lint` y `python-typecheck` pasan. `compare` corre solo si `python-test` y `java-test` pasan. Falla cualquiera → cierra el PR.
 
 ### Reglas
 

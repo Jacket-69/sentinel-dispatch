@@ -45,7 +45,7 @@ log.info("dispatch.created", incident_id=i.id, unit_id=u.id, eta_seconds=eta)
 
 ## Async
 
-FastAPI nativo async. Usar `aiosqlite` + `AsyncSession` de SQLAlchemy. No mezclar sync con async sin razón.
+FastAPI es async nativo; la persistencia es un log JSONL append-only (ADR-0007), I/O de fichero sin ORM. No hay aiosqlite ni SQLAlchemy. No mezclar sync con async sin razón.
 
 ## Tests
 

@@ -128,8 +128,8 @@ jobs:
   # ===========================================================================
   # Validación dual RT-02 — comparación de outputs
   # ===========================================================================
-  # Se activa cuando ambos cores produzcan outputs sobre el dataset (post-H3).
-  # Por ahora queda como job de placeholder.
+  # Validación dual RT-02: corre ambos cores sobre el dataset y verifica paridad
+  # bit-exacta (12/12 OK). Activo.
   compare:
     runs-on: ubuntu-latest
     needs: [python-test, java-test]

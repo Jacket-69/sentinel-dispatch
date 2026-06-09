@@ -85,7 +85,7 @@ erDiagram
 
 ## Persistencia
 
-- **`data/eventos.jsonl`**: log inmutable. Una línea = un evento JSON validado por Pydantic en escritura. Ignorado por git (estado runtime).
+- **`data/_runtime/eventos.jsonl`**: log inmutable. Una línea = un evento JSON validado por Pydantic en escritura. Ignorado por git (estado runtime). Es el default operativo de la consola web (constante `_LOG_EVENTOS_DEFAULT` en `interfaces/api/web.py`), configurable por env `SENTINEL_EVENTOS_LOG`. La CLI `run-dataset --log-eventos PATH` escribe donde se le indique.
 - **`data/dataset/incidentes.json`**: dataset de aceptación de los 12 incidentes (sec. 2.12 del SRS). Versionado en git.
 - **`data/dataset/unidades.json`**: inventario de las 10 unidades U01..U10 (sec. 2.12 del SRS). Versionado en git.
 - **`data/graphs/coquimbo.graphml`**: grafo OSM IV Región. Generado por `core-python/scripts/build_graph.py`. Ignorado por git (pesado, regenerable).

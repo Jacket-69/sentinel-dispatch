@@ -242,7 +242,7 @@ El re-despacho **no es automático**: el sistema presenta la propuesta al operad
 - **Categoría MPDS asignada** — Alpha / Bravo / Charlie / Delta / Echo
 - **Timestamp ISO 8601** — fecha y hora exacta del cálculo
 - **Alerta visual** — si el despacho es sub-óptimo (Básica para Echo o Delta), se muestra alerta roja con texto "Despacho sub-óptimo crítico"
-- **Log JSON inmutable** — persistido en la base de datos con todos los campos anteriores más las respuestas individuales del árbol de triaje
+- **Log JSON inmutable** — persistido en el log JSONL append-only (ADR-0007) con todos los campos anteriores más las respuestas individuales del árbol de triaje
 
 **Ejemplo de log JSON mínimo:**
 

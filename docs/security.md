@@ -16,7 +16,7 @@
 | STRIDE | Riesgo | Mitigación |
 |---|---|---|
 | **Spoofing** | Operador no autorizado ingresa al sistema | Auth básica (RN-10); proyecto académico → JWT simple |
-| **Tampering** | Modificación de log de despacho | Log append-only enforced en BD (RN-03, RN-07) |
+| **Tampering** | Modificación de log de despacho | Log append-only por construcción (JSONL, ADR-0007): el código no expone API de UPDATE/DELETE (RN-03, RN-07) |
 | **Repudiation** | Operador niega autorizar despacho | `operador` registrado en cada log |
 | **Information disclosure** | Exposición de datos del paciente | No persistir nombres/RUT; solo coordenadas y respuestas binarias del triaje |
 | **Denial of service** | Saturación con incidentes spam | Fuera de scope académico; rate limit básico opcional |

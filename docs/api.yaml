@@ -26,4 +26,82 @@ paths:
       responses:
         "200":
           description: Servicio listo
-# TODO F2: agregar /triaje, /despacho, /unidades, /logs, /simulacion
+  /v1/incidentes/validar-coordenadas:
+    post:
+      summary: Valida coordenadas dentro del bbox de la IV Región (RF-01)
+      operationId: validarCoordenadas
+      tags: [incidentes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lat, lon]
+              properties:
+                lat:
+                  type: number
+                  description: Latitud EPSG:4326, grados decimales.
+                lon:
+                  type: number
+                  description: Longitud EPSG:4326, grados decimales.
+      responses:
+        "200":
+          description: Coordenadas dentro del bbox de la IV Región
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valido:
+                    type: boolean
+                  lat:
+                    type: number
+                  lon:
+                    type: number
+                  rango_iv_region:
+                    type: object
+                    additionalProperties:
+                      type: number
+        "422":
+          description: Coordenadas fuera del bbox de la IV Región (RN-01)
+  /consola/triaje:
+    get:
+      summary: Consola web — vista de triaje (HTML)
+      operationId: consolaTriaje
+      tags: [consola]
+      responses:
+        "200":
+          description: Página HTML de la consola
+          content:
+            text/html: {}
+  /consola/despacho:
+    get:
+      summary: Consola web — vista de despacho (HTML)
+      operationId: consolaDespacho
+      tags: [consola]
+      responses:
+        "200":
+          description: Página HTML de la consola
+          content:
+            text/html: {}
+  /consola/unidades:
+    get:
+      summary: Consola web — vista de unidades (HTML)
+      operationId: consolaUnidades
+      tags: [consola]
+      responses:
+        "200":
+          description: Página HTML de la consola
+          content:
+            text/html: {}
+  /consola/log:
+    get:
+      summary: Consola web — vista de log de eventos (HTML)
+      operationId: consolaLog
+      tags: [consola]
+      responses:
+        "200":
+          description: Página HTML de la consola
+          content:
+            text/html: {}

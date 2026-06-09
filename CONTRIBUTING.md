@@ -6,12 +6,11 @@
 
 ```bash
 git clone git@github.com:Jacket-69/sentinel-dispatch.git
-cd sentinel-dispatch
+cd sentinel-dispatch/core-python
 uv sync --all-groups
 uv run pre-commit install
 cp .env.example .env
 make build-graph    # solo la primera vez (~2 min)
-make db-init
 make dev
 ```
 
@@ -89,20 +88,23 @@ ejecutar un *spike* empírico de viabilidad:**
    ajusta antes** de entrar al SRS, no después (ADR-0011 es el contraejemplo
    de qué pasa si se invierte el orden).
 
-CPs pendientes que requieren spike retroactivo antes de H4 (ADR-0011
-§V/L#1):
+CPs que requerían spike retroactivo antes de H4 (ADR-0011 §V/L#1) —
+**resueltos**:
 
-- **CP-08** — *intento de edición del log JSONL*: spike = abrir un JSONL
-  ya escrito, intentar editarlo, verificar que el adapter detecta la
-  mutación. Si la detección depende de hashes/checksums fuera del scope
-  del SRS, ajustar CP-08 antes de aceptarlo en H4.
-- **CP-12** — *performance 50 unidades ≤ 1000 ms*: spike = generar
-  dataset sintético de 50 unidades, correr el orquestador, medir
-  wall-clock. Si la métrica está fuera del orden de magnitud, ajustar
-  CP-12 (p. ej., a ≤ 2000 ms o reducir N) antes de aceptarlo.
+- **CP-08** — *intento de edición del log JSONL*: spike ejecutado en
+  `core-python/tests/integration/test_repositorio_jsonl_append_only.py::TestSpikeCP08`.
+  Se abre un JSONL ya escrito, se intenta editar y se verifica que el
+  adapter detecta la mutación al reabrir (`ValidationError`/
+  `EventoDuplicadoError`); el adapter no expone API de update/delete
+  (RN-03/RN-07 estructural), así que no hizo falta hashes/checksums fuera
+  del scope del SRS. CP-08 quedó aceptado sin ajuste.
+- **CP-12** — *performance 50 unidades ≤ 1000 ms*: spike documentado en
+  [ADR-0019](docs/architecture/decisions/0019-spike-cp12-criterio-ajustado.md).
+  La medición sobre dataset sintético mostró que el criterio original era
+  inalcanzable, así que se ajustó a **≤ 2000 ms p95** antes de aceptarlo.
 
-Ambos spikes son responsabilidad del PR que abra H4 y deben aparecer en
-ADRs subsecuentes (0016+) como sección "Spike de viabilidad".
+Ambos spikes aparecen como sección "Spike de viabilidad" en sus ADRs
+respectivos (CP-08 en ADR-0018, CP-12 en ADR-0019).
 
 ## Reportar un bug
 
