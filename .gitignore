@@ -87,6 +87,7 @@ Thumbs.db
 # Eventos JSONL (ADR-0007 — estado runtime, no se versiona)
 data/eventos.jsonl
 data/eventos*.jsonl
+data/_runtime/
 
 # Outputs de comparación dual (regenerables)
 /tmp/python-out/
