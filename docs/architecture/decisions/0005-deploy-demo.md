@@ -1,25 +1,31 @@
 ---
 adr: 0005
 title: Deploy demo vía Cloudflare Tunnel desde PC local con mitigaciones de resiliencia
-status: deferred
-deferred-to: F4
+status: accepted
 date: 2026-05-06
 deferred-date: 2026-05-15
+reactivated-date: 2026-06-09
 deciders: Benjamin López
-tags: [adr, deploy, devops, demo, deferred]
+tags: [adr, deploy, devops, demo]
 ---
 
 # ADR 0005 — Deploy demo vía Cloudflare Tunnel desde PC local
 
-> **⏸ DEFERRED el 2026-05-15 — re-evaluar en F4 cuando exista app que servir.**
+> **✅ REACTIVADO E IMPLEMENTADO el 2026-06-09** (estuvo `deferred` del 2026-05-15 al 2026-06-09, ver nota histórica más abajo). La decisión core se mantuvo — Cloudflare Tunnel desde `GLaDOS`, $0 — con tres desvíos respecto del plan original, documentados en la sección "Implementación real".
+
+## Implementación real (2026-06-09)
+
+La consola corre en **`https://sentinel.threnody.me`** servida desde `GLaDOS`. Desvíos respecto del plan 2026-05-06:
+
+1. **Túnel con nombre + dominio propio** en vez de `trycloudflare.com` efímero: la zona `threnody.me` se migró de Porkbun a Cloudflare (plan Free) y el túnel `sentinel` (named tunnel) rutea `sentinel.threnody.me` → `http://localhost:8000`. URL estable y presentable; los registros de correo del dominio (mailbox.org: 3 MX, SPF, DMARC, 4 CNAME DKIM) se replicaron y verificaron antes y después del cambio de nameservers.
+2. **systemd user units en vez de docker-compose**: la app no está dockerizada (corre con `uv run uvicorn` directo) y el overhead de contenerizar no aportaba a la defensa. Unidades en `~/.config/systemd/user/` de GLaDOS — `sentinel-dispatch.service` (uvicorn en `127.0.0.1:8000`, solo loopback: el único camino público es el túnel; `Restart=always`; `SENTINEL_VISTAS` controla las vistas de la nav) y `cloudflared-sentinel.service` (`cloudflared tunnel run sentinel`, `Restart=always`). Con `loginctl enable-linger`, ambas arrancan al boot sin sesión abierta.
+3. **Healthcheck como systemd timer en vez de cron+docker** (mitigación 5): `sentinel-healthcheck.timer` cada 5 min curlea `/healthz` y reinicia `sentinel-dispatch.service` si no responde.
+
+Estado de las mitigaciones originales: (1) túnel probado **6 días antes** de la presentación del 2026-06-15 ✓ · (4) Tailscale ya operativo en GLaDOS + móvil ✓ · (5) healthcheck ✓ · (2) UPS aún no hay · (3) screencast pre-grabado pendiente de grabar antes de la defensa. La exposición pública sin auth es consciente: RN-10 sigue diferido; si se necesita restringir acceso, Cloudflare Access (Zero Trust, free) se puede anteponer al hostname sin tocar la app.
+
+> **Nota histórica — ⏸ DEFERRED el 2026-05-15, re-evaluado en F4.**
 >
-> Razón del cambio: decidir Cloudflare Tunnel + Tailscale + cron healthcheck + UPS + Tailscale móvil para reiniciar en vivo, mientras `src/` está vacío, es planificar la jubilación antes del primer trabajo. La revisión 2026-05-15 (ver `Plan B - Reestructuración.md` del vault) decidió posponer este ADR a F4 (post-MVP), cuando exista núcleo funcional que justifique el deploy.
->
-> Para v1 la "demo en vivo" se reemplaza por ejecución reproducible local del dataset: `make test-dataset` corre los 12 incidentes en ambos cores, y `make compare` genera el reporte RT-02. La defensa se hace mostrando la ejecución en pantalla y el reporte de validación dual.
->
-> La decisión técnica de este ADR sigue siendo válida cuando se reactive. Mantener `docker-compose.yml` y `scripts/cloudflared-setup.md` como referencia pero **no ejecutar el playbook** hasta F4.
->
-> Este ADR se conserva como referencia para cuando se reactive.
+> Razón del deferral: decidir Cloudflare Tunnel + Tailscale + cron healthcheck + UPS + Tailscale móvil para reiniciar en vivo, mientras `src/` estaba vacío, era planificar la jubilación antes del primer trabajo. La revisión 2026-05-15 (ver `Plan B - Reestructuración.md` del vault) pospuso este ADR a F4 (post-MVP). Durante v1 la "demo en vivo" se reemplazó por ejecución reproducible local del dataset (`make test-dataset` + `make compare`). El `docker-compose.yml` y `scripts/cloudflared-setup.md` referidos por el plan original nunca se crearon; la implementación real (arriba) los reemplazó por units systemd.
 
 ## Contexto
 
@@ -126,11 +132,12 @@ Para la defensa se usa una URL **estable** mediante Cloudflare Tunnel con cuenta
 
 ## Cumplimiento / verificación
 
-- `docker-compose.yml` levanta app + cloudflared con `restart: unless-stopped`.
-- `scripts/cloudflared-setup.md` documenta el playbook reproducible.
-- `scripts/healthcheck.sh` + cron entry verifica vida cada 5 min.
-- `docs/operations/runbook.md` incluye sección "Demo en vivo" con: pre-flight check (T-24h, T-2h, T-30min), comandos para reiniciar desde el celular, y procedimiento de fallback al screencast.
-- **Drill de defensa**: ensayar la demo completa desde la sala de defensa (o equivalente con WiFi distinto) al menos 1 semana antes; documentar tiempos y problemas.
+> Actualizado 2026-06-09 a los artefactos reales (el plan original preveía docker-compose + scripts que nunca se crearon).
+
+- `sentinel-dispatch.service` + `cloudflared-sentinel.service` (systemd user units en GLaDOS) con `Restart=always` y linger habilitado — verificado: sobreviven sin sesión y reconectan solos.
+- `sentinel-healthcheck.timer` verifica `/healthz` cada 5 min y reinicia la app si no responde.
+- Verificación e2e 2026-06-09: `https://sentinel.threnody.me/healthz` responde por el edge de Cloudflare con TLS válido; `/consola/triaje` y `/consola/unidades` → 200; correo del dominio (MX/SPF/DKIM/DMARC) intacto post-migración DNS.
+- **Drill de defensa**: ensayar la demo completa desde una red distinta a la de casa antes del 2026-06-15; grabar el screencast de fallback (mitigación 3).
 
 ## Referencias
 

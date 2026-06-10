@@ -2,4 +2,15 @@
   <p class="resultado-label">// CATEGORÍA MPDS</p>
   <p class="resultado-categoria">{{ categoria | upper }}</p>
   <p class="resultado-descripcion">{{ descripcion }}</p>
+  <ol class="escala-mpds" aria-label="Escala de severidad MPDS">
+    {% for c in ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'] %}
+    <li class="{% if c == categoria %}activa{% endif %}">{{ c }}</li>
+    {% endfor %}
+  </ol>
+  {% if incidente_id %}
+  <p class="resultado-incidente">
+    // BALIZA <strong>{{ incidente_id }}</strong> EN EL MAPA —
+    <a href="/consola/despacho">IR A DESPACHO ▶</a>
+  </p>
+  {% endif %}
 </div>

@@ -1,4 +1,4 @@
-.PHONY: help install test test-python test-java test-fast test-dataset \
+.PHONY: help install dev test test-python test-java test-fast test-dataset \
         lint typecheck ci compare build-graph clean
 
 # ===========================================================================
@@ -18,6 +18,9 @@ help: ## Mostrar esta ayuda
 install: ## Instalar dependencias en ambos cores
 	$(MAKE) -C core-python install
 	@echo "Para core-java: cd core-java && mvn dependency:resolve"
+
+dev: ## Levantar la consola web en http://localhost:8000 (carga el grafo al arranque)
+	cd core-python && uv run uvicorn sentinel_dispatch.interfaces.api.main:app --reload
 
 test: test-python test-java ## Correr tests de ambos cores
 

@@ -2,7 +2,7 @@
 
 {% block title %}UNIDADES — SENTINEL-DISPATCH{% endblock %}
 
-{% block extra_head %}<link rel="stylesheet" href="/static/unidades.css">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/unidades.css?v={{ version_estaticos }}">{% endblock %}
 
 {% block consola_clase %}consola--ancha{% endblock %}
 
@@ -10,12 +10,35 @@
 
 <header class="unidades-header">
   <h1 class="consola-titulo">PANEL DE UNIDADES</h1>
-  <p class="consola-subtitulo">// FLOTA SAMU — IV REGIÓN — ESTADO ACTUAL</p>
+  <p class="consola-subtitulo">// FLOTA SAMU — IV REGIÓN — ESTADO OPERATIVO</p>
 </header>
 
-<div class="barra-flota">
-  <span class="recuento">{{ unidades|length }} UNIDADES</span>
-  <span>// REGISTRO EN TIEMPO REAL</span>
+{% set n_disponible = unidades | selectattr('estado_token', 'equalto', 'disponible') | list | length %}
+{% set n_enruta     = unidades | selectattr('estado_token', 'equalto', 'enruta')     | list | length %}
+{% set n_enescena   = unidades | selectattr('estado_token', 'equalto', 'enescena')   | list | length %}
+{% set n_taller     = unidades | selectattr('estado_token', 'equalto', 'taller')     | list | length %}
+
+<div class="tablero-flota">
+  <div class="stat stat--disponible">
+    <span class="stat-num">{{ n_disponible }}</span>
+    <span class="stat-label">Disponibles</span>
+  </div>
+  <div class="stat stat--enruta">
+    <span class="stat-num">{{ n_enruta }}</span>
+    <span class="stat-label">En ruta</span>
+  </div>
+  <div class="stat stat--enescena">
+    <span class="stat-num">{{ n_enescena }}</span>
+    <span class="stat-label">En escena</span>
+  </div>
+  <div class="stat stat--taller">
+    <span class="stat-num">{{ n_taller }}</span>
+    <span class="stat-label">Taller</span>
+  </div>
+  <div class="stat stat--total">
+    <span class="stat-num">{{ unidades | length }}</span>
+    <span class="stat-label">Flota total</span>
+  </div>
 </div>
 
 <div class="tabla-unidades-wrap">
@@ -33,10 +56,16 @@
     <tbody>
       {% if unidades %}
         {% for u in unidades %}
-        <tr class="fila--{{ u.estado_token }}">
+        <tr class="fila--{{ u.estado_token }}" style="--i: {{ loop.index0 }}">
           <td class="col-id">{{ u.id }}</td>
           <td>{{ u.patente }}</td>
-          <td>{{ u.tipo }}</td>
+          <td>
+            {% if u.tipo == 'Avanzada' %}
+            <span class="chip chip--als">Avanzada · ALS</span>
+            {% else %}
+            <span class="chip chip--bls">Básica · BLS</span>
+            {% endif %}
+          </td>
           <td>{{ u.base_nombre }}</td>
           <td class="col-pos">{{ '%.4f'|format(u.base_lat) }}, {{ '%.4f'|format(u.base_lon) }}</td>
           <td>

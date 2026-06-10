@@ -258,3 +258,73 @@ async def test_reset_reincorpora_la_flota_al_pool() -> None:
         response = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
     assert response.status_code == 200
     assert response.json()["unidad_seleccionada"] is not None
+
+
+# --------------------------------------------------------------------------
+# Puente triaje → despacho: balizas pendientes (overlay en memoria)
+# --------------------------------------------------------------------------
+
+_TRIAJE_BENIGNO = {
+    "consciente": "true",
+    "respira_normal": "true",
+    "dificultad_respiratoria": "false",
+    "sangrado": "Ninguno",
+    "dolor_toracico": "Ninguno",
+    "grupo_etario": "Adulto",
+}
+
+
+@pytest.mark.asyncio
+async def test_clasificar_triaje_genera_baliza_pendiente() -> None:
+    async with _cliente() as client:
+        clasificacion = await client.post("/consola/triaje/clasificar", data=_TRIAJE_BENIGNO)
+        listado = await client.get("/consola/despacho/incidentes")
+    assert clasificacion.status_code == 200
+    # El fragmento enlaza la baliza generada con la vista de despacho.
+    assert "I-TRIAJE-001" in clasificacion.text
+    incidentes = listado.json()["incidentes"]
+    assert len(incidentes) == 1
+    baliza = incidentes[0]
+    assert baliza["id"] == "I-TRIAJE-001"
+    assert baliza["categoria_mpds"] == "Alpha"
+    # Sin grafo en app.state, el punto cae crudo dentro del bbox urbano.
+    assert -29.98 <= baliza["lat"] <= -29.88
+    assert -71.34 <= baliza["lon"] <= -71.22
+
+
+@pytest.mark.asyncio
+async def test_despachar_baliza_la_consume_y_loguea_su_id() -> None:
+    repo = _RepoFake()
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    app.dependency_overrides[obtener_repositorio_eventos] = lambda: repo
+    async with _cliente() as client:
+        await client.post("/consola/triaje/clasificar", data=_TRIAJE_BENIGNO)
+        datos = _DATOS_OK | {"incidente_id": "I-TRIAJE-001"}
+        despacho = await client.post("/consola/despacho/despachar", data=datos)
+        listado = await client.get("/consola/despacho/incidentes")
+    assert despacho.status_code == 200
+    assert despacho.json()["incidente_id"] == "I-TRIAJE-001"
+    # La baliza despachada desaparece del overlay de pendientes...
+    assert listado.json()["incidentes"] == []
+    # ...y el evento del log queda asociado a su id.
+    assert repo.eventos[0].incidente_id == "I-TRIAJE-001"
+
+
+@pytest.mark.asyncio
+async def test_despachar_con_baliza_inexistente_usa_id_consola() -> None:
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    async with _cliente() as client:
+        datos = _DATOS_OK | {"incidente_id": "I-TRIAJE-999"}
+        response = await client.post("/consola/despacho/despachar", data=datos)
+    assert response.status_code == 200
+    assert response.json()["incidente_id"] == "I-CONSOLA"
+
+
+@pytest.mark.asyncio
+async def test_reset_descarta_las_balizas_pendientes() -> None:
+    async with _cliente() as client:
+        await client.post("/consola/triaje/clasificar", data=_TRIAJE_BENIGNO)
+        reset = await client.post("/consola/despacho/reset")
+        listado = await client.get("/consola/despacho/incidentes")
+    assert reset.json()["incidentes_descartados"] == 1
+    assert listado.json()["incidentes"] == []

@@ -20,9 +20,10 @@
   /* -----------------------------------------------------------
      Constantes
      ----------------------------------------------------------- */
-  const ENDPOINT       = '/consola/despacho/despachar';
-  const ENDPOINT_RED   = '/consola/despacho/red-vial';
-  const ENDPOINT_RESET = '/consola/despacho/reset';
+  const ENDPOINT            = '/consola/despacho/despachar';
+  const ENDPOINT_RED        = '/consola/despacho/red-vial';
+  const ENDPOINT_RESET      = '/consola/despacho/reset';
+  const ENDPOINT_PENDIENTES = '/consola/despacho/incidentes';
   const BOUNDS_SW = [-30.10, -71.45];
   const BOUNDS_NE = [-29.85, -71.15];
   const COLOR_PHOSPHOR = '#00ff41';
@@ -38,6 +39,10 @@
   let marcadorIncidente = null;
   let marcadorUnidad    = null;
   let polylineRuta      = null;
+
+  /* Balizas del triaje (puente triaje → despacho) */
+  let marcadoresPendientes  = {};   // id -> circleMarker
+  let incidenteSeleccionado = null; // id de la baliza elegida, o null (clic manual)
 
   /* -----------------------------------------------------------
      Inicialización del mapa
@@ -85,11 +90,94 @@
   /* -----------------------------------------------------------
      Referencias DOM
      ----------------------------------------------------------- */
-  const btnDespachar    = document.getElementById('btn-despachar');
-  const btnReset        = document.getElementById('btn-reset');
-  const coordDisplay    = document.getElementById('coord-incidente');
-  const panelDespacho   = document.getElementById('panel-despacho');
-  const selectCategoria = document.getElementById('select-categoria');
+  const btnDespachar  = document.getElementById('btn-despachar');
+  const btnReset      = document.getElementById('btn-reset');
+  const coordDisplay  = document.getElementById('coord-incidente');
+  const panelDespacho = document.getElementById('panel-despacho');
+
+  /** Valor del control segmentado de categoría (radios `categoria_mpds`). */
+  function categoriaSeleccionada() {
+    const marcado = document.querySelector('input[name="categoria_mpds"]:checked');
+    return marcado ? marcado.value : 'Charlie';
+  }
+
+  /** Marca una categoría en el control segmentado (al elegir una baliza). */
+  function marcarCategoria(valor) {
+    const radio = document.querySelector(
+      `input[name="categoria_mpds"][value="${valor}"]`
+    );
+    if (radio) { radio.checked = true; }
+  }
+
+  /** Coloca (o mueve) el marcador de incidente y habilita el despacho. */
+  function ubicarIncidente(lat, lon) {
+    latIncidente = lat;
+    lonIncidente = lon;
+    if (marcadorIncidente) {
+      marcadorIncidente.setLatLng([lat, lon]);
+    } else {
+      marcadorIncidente = L.circleMarker([lat, lon], {
+        radius: 8,
+        color: COLOR_CRIT,
+        fillColor: COLOR_CRIT,
+        fillOpacity: 0.9,
+        weight: 2,
+        className: 'marcador-incidente',
+      }).addTo(map);
+    }
+    btnDespachar.disabled = false;
+  }
+
+  /* -----------------------------------------------------------
+     Balizas pendientes del triaje: cada clasificación deja un
+     incidente en el mapa; clickearlo lo selecciona para despachar.
+     ----------------------------------------------------------- */
+  async function cargarPendientes() {
+    Object.values(marcadoresPendientes).forEach(function (m) { map.removeLayer(m); });
+    marcadoresPendientes = {};
+    try {
+      const res = await fetch(ENDPOINT_PENDIENTES);
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.incidentes || []).forEach(function (inc) {
+        const m = L.circleMarker([inc.lat, inc.lon], {
+          radius: 9,
+          color: COLOR_CRIT,
+          fillColor: COLOR_CRIT,
+          fillOpacity: 0.3,
+          weight: 2,
+          className: 'marcador-pendiente',
+        }).addTo(map);
+        m.bindTooltip(`${inc.id} · ${inc.categoria_mpds}`, { direction: 'top' });
+        m.on('click', function (ev) {
+          L.DomEvent.stopPropagation(ev); /* que no caiga al clic del mapa */
+          seleccionarBaliza(inc);
+        });
+        marcadoresPendientes[inc.id] = m;
+      });
+    } catch (_) {
+      /* Sin balizas: la vista sigue operativa */
+    }
+  }
+
+  /** Selecciona una baliza: fija coords + categoría y deja todo listo. */
+  function seleccionarBaliza(inc) {
+    incidenteSeleccionado = inc.id;
+    marcarCategoria(inc.categoria_mpds);
+    ubicarIncidente(inc.lat, inc.lon);
+    coordDisplay.textContent =
+      `${inc.id} — ${inc.lat.toFixed(4)}, ${inc.lon.toFixed(4)}`;
+    coordDisplay.classList.add('activo');
+  }
+
+  /** Quita la baliza ya despachada del mapa y del estado local. */
+  function consumirBaliza(id) {
+    const m = marcadoresPendientes[id];
+    if (m) { map.removeLayer(m); delete marcadoresPendientes[id]; }
+    if (incidenteSeleccionado === id) { incidenteSeleccionado = null; }
+  }
+
+  cargarPendientes();
 
   /* -----------------------------------------------------------
      Helpers
@@ -230,12 +318,14 @@
   function dibujarCapasMapa(geo) {
     limpiarCapasPrevias();
 
-    /* Polyline de la ruta A* */
+    /* Polyline de la ruta A* — la clase CSS anima el flujo de guiones
+       en dirección al incidente (despacho.css: .ruta-astar). */
     if (geo.ruta && geo.ruta.length > 1) {
       polylineRuta = L.polyline(geo.ruta, {
         color: COLOR_PHOSPHOR,
         weight: 4,
         opacity: 0.9,
+        className: 'ruta-astar',
       }).addTo(map);
 
       map.fitBounds(polylineRuta.getBounds(), { padding: [40, 40] });
@@ -261,32 +351,16 @@
      Interacción: clic en el mapa — colocar marcador de incidente
      ----------------------------------------------------------- */
   map.on('click', function (e) {
-    latIncidente = e.latlng.lat;
-    lonIncidente = e.latlng.lng;
-
-    const latStr = latIncidente.toFixed(4);
-    const lonStr = lonIncidente.toFixed(4);
-
-    /* Actualizar o crear el marcador */
-    if (marcadorIncidente) {
-      marcadorIncidente.setLatLng(e.latlng);
-    } else {
-      marcadorIncidente = L.circleMarker(e.latlng, {
-        radius: 8,
-        color: COLOR_CRIT,
-        fillColor: COLOR_CRIT,
-        fillOpacity: 0.9,
-        weight: 2,
-      }).addTo(map);
-    }
-
-    /* Actualizar display de coordenadas */
-    coordDisplay.textContent = `${latStr}, ${lonStr}`;
-    coordDisplay.classList.add('activo');
+    /* Clic manual: deja de apuntar a una baliza del triaje (si la había) */
+    incidenteSeleccionado = null;
 
     /* Habilitar despacho: recolocar el incidente reabre un despacho
        (un incidente = un despacho hasta que el operador lo mueva). */
-    btnDespachar.disabled = false;
+    ubicarIncidente(e.latlng.lat, e.latlng.lng);
+
+    coordDisplay.textContent =
+      `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+    coordDisplay.classList.add('activo');
   });
 
   /* -----------------------------------------------------------
@@ -295,7 +369,7 @@
   btnDespachar.addEventListener('click', async function () {
     if (latIncidente == null || lonIncidente == null) return;
 
-    const categoria = selectCategoria.value;
+    const categoria = categoriaSeleccionada();
 
     /* Estado de carga */
     btnDespachar.disabled = true;
@@ -309,6 +383,9 @@
       lon:           lonIncidente,
       categoria_mpds: categoria,
     });
+    if (incidenteSeleccionado) {
+      body.set('incidente_id', incidenteSeleccionado);
+    }
 
     let respuesta;
     try {
@@ -356,6 +433,9 @@
          deshabilitado hasta que el operador recoloque el incidente. En
          saturación (sin unidad) se permite reintentar. */
       const huboUnidad = datos.unidad_seleccionada && datos.motivo !== 'saturacion';
+      if (huboUnidad && incidenteSeleccionado) {
+        consumirBaliza(incidenteSeleccionado);
+      }
       btnDespachar.disabled = !!huboUnidad;
       return;
     }
@@ -411,8 +491,11 @@
       return;
     }
 
-    /* Limpiar estado local y UI; el wireframe de fondo no se toca */
+    /* Limpiar estado local y UI; el wireframe de fondo no se toca.
+       El servidor ya descartó las balizas pendientes: recargar la capa. */
     limpiarTodo();
+    incidenteSeleccionado = null;
+    cargarPendientes();
     map.fitBounds([BOUNDS_SW, BOUNDS_NE]);
     setPanelVariante('');
     panelDespacho.innerHTML = '<span class="placeholder">// ESPERANDO DESPACHO</span>';

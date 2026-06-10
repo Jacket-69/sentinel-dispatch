@@ -6,7 +6,7 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/static/despacho.css">
+  <link rel="stylesheet" href="/static/despacho.css?v={{ version_estaticos }}">
 {% endblock %}
 
 {% block content %}
@@ -19,16 +19,31 @@
 <div class="despacho-controles panel" data-titulo="PARÁMETROS">
   <div class="controles-fila">
 
-    <div class="campo-categoria">
-      <label for="select-categoria">CATEGORÍA MPDS</label>
-      <select id="select-categoria" name="categoria_mpds">
-        <option value="Alpha">Alpha — Básico / sin riesgo vital</option>
-        <option value="Bravo">Bravo — Potencialmente inestable</option>
-        <option value="Charlie" selected>Charlie — Inestable controlado</option>
-        <option value="Delta">Delta — Inestable crítico</option>
-        <option value="Echo">Echo — Paro cardiorrespiratorio</option>
-      </select>
-    </div>
+    <fieldset class="campo campo-categoria">
+      <legend>Categoría MPDS</legend>
+      <div class="segmento" id="segmento-categoria">
+        <label class="opcion" title="Básico / sin riesgo vital">
+          <input type="radio" name="categoria_mpds" value="Alpha">
+          <span>Alpha</span>
+        </label>
+        <label class="opcion" title="Potencialmente inestable">
+          <input type="radio" name="categoria_mpds" value="Bravo">
+          <span>Bravo</span>
+        </label>
+        <label class="opcion opcion--warn" title="Inestable controlado">
+          <input type="radio" name="categoria_mpds" value="Charlie" checked>
+          <span>Charlie</span>
+        </label>
+        <label class="opcion opcion--crit" title="Inestable crítico">
+          <input type="radio" name="categoria_mpds" value="Delta">
+          <span>Delta</span>
+        </label>
+        <label class="opcion opcion--crit" title="Paro cardiorrespiratorio">
+          <input type="radio" name="categoria_mpds" value="Echo">
+          <span>Echo</span>
+        </label>
+      </div>
+    </fieldset>
 
     <div class="campo-coords">
       <label>COORDENADAS</label>
@@ -53,6 +68,6 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="/static/despacho.js"></script>
+<script src="/static/despacho.js?v={{ version_estaticos }}"></script>
 
 {% endblock %}

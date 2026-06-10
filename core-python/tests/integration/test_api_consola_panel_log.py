@@ -52,9 +52,23 @@ async def test_get_vista_unidades_ok() -> None:
     assert "U01" in cuerpo
     assert "U10" in cuerpo
     assert "fila--disponible" in cuerpo
-    # La nav comparte las tres vistas y marca la activa.
-    assert 'href="/consola/log"' in cuerpo
+    # La nav muestra solo las vistas habilitadas (default presentación:
+    # triaje + unidades) y marca la activa. Las rutas siguen registradas.
+    assert 'href="/consola/triaje"' in cuerpo
+    assert 'href="/consola/despacho"' not in cuerpo
+    assert 'href="/consola/log"' not in cuerpo
     assert 'class="activo"' in cuerpo
+
+
+@pytest.mark.asyncio
+async def test_nav_completa_con_sentinel_vistas(monkeypatch: pytest.MonkeyPatch) -> None:
+    # SENTINEL_VISTAS reactiva la consola completa; se lee en cada render.
+    monkeypatch.setenv("SENTINEL_VISTAS", "triaje,despacho,unidades,log")
+    async with _cliente() as client:
+        response = await client.get("/consola/unidades")
+    cuerpo = response.text
+    assert 'href="/consola/despacho"' in cuerpo
+    assert 'href="/consola/log"' in cuerpo
 
 
 def test_token_estado_cubre_los_cuatro_estados() -> None:

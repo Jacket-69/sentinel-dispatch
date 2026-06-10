@@ -2,7 +2,7 @@
 
 {% block title %}LOG — SENTINEL-DISPATCH{% endblock %}
 
-{% block extra_head %}<link rel="stylesheet" href="/static/log.css">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/log.css?v={{ version_estaticos }}">{% endblock %}
 
 {% block consola_clase %}consola--ancha{% endblock %}
 
@@ -15,10 +15,21 @@
 
 <section>
 
+  {% set n_ok   = eventos | selectattr('token', 'equalto', 'ok')   | list | length %}
+  {% set n_warn = eventos | selectattr('token', 'equalto', 'warn') | list | length %}
+  {% set n_crit = eventos | selectattr('token', 'equalto', 'crit') | list | length %}
+  {% set n_info = eventos | selectattr('token', 'equalto', 'info') | list | length %}
+
   <div class="log-barra-conteo">
     <span>
       <span class="log-prompt">$</span>
       {{ eventos|length }} EVENTOS
+    </span>
+    <span class="log-conteos">
+      <span class="conteo conteo--ok">● {{ n_ok }} OK</span>
+      <span class="conteo conteo--warn">● {{ n_warn }} WARN</span>
+      <span class="conteo conteo--crit">● {{ n_crit }} CRIT</span>
+      <span class="conteo conteo--info">● {{ n_info }} INFO</span>
     </span>
     <span class="dimmed">// JSONL · APPEND-ONLY · RF-06</span>
   </div>
@@ -28,7 +39,7 @@
     {% if eventos %}
 
       {% for e in eventos %}
-      <div class="evento evento--{{ e.token }}" role="listitem">
+      <div class="evento evento--{{ e.token }}" role="listitem" style="--i: {{ loop.index0 }}">
         <span class="evento-ts">[{{ e.timestamp }}]</span>
         <span class="evento-sep">·</span>
         <span class="evento-tipo">{{ e.tipo }}</span>
@@ -37,6 +48,10 @@
         <span class="evento-operador">{{ e.operador }}</span>
       </div>
       {% endfor %}
+
+      <div class="log-tail" aria-hidden="true">
+        <span class="log-prompt">$</span> <span class="cursor-bloque">█</span>
+      </div>
 
     {% else %}
 

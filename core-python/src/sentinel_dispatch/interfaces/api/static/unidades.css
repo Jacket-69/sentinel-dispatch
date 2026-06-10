@@ -7,27 +7,86 @@
    ========================================================= */
 
 /* ---------------------------------------------------------
-   Barra de recuento superior
+   Tablero de la flota: un contador grande por estado.
+   El color de cada celda es el mismo token que pinta la
+   tabla (disponible/enruta/enescena/taller).
    --------------------------------------------------------- */
-.barra-flota {
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  background: var(--panel);
-  border: 1px solid var(--dim);
-  border-bottom: none;
-  padding: 0.45rem 1rem;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--dim);
+.tablero-flota {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
-.barra-flota .recuento {
-  color: var(--phosphor);
-  font-size: 1.2rem;
-  text-shadow: var(--glow-phosphor);
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--dim);
+  padding: 0.7rem 1rem 0.55rem;
+  position: relative;
+  animation: stat-in 0.3s ease-out both;
+}
+
+.stat:nth-child(2) { animation-delay: 60ms; }
+.stat:nth-child(3) { animation-delay: 120ms; }
+.stat:nth-child(4) { animation-delay: 180ms; }
+.stat:nth-child(5) { animation-delay: 240ms; }
+
+@keyframes stat-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Esquinas marcadas, como marco de instrumento */
+.stat::before,
+.stat::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+}
+
+.stat::before {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.stat::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
+.stat-num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  line-height: 1;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.stat-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-top: 0.2rem;
+}
+
+.stat--disponible { color: var(--phosphor); border-color: var(--phosphor); }
+.stat--enruta     { color: var(--amber); }
+.stat--enescena   { color: var(--amber); }
+.stat--taller     { color: var(--dim); }
+.stat--total      { color: var(--phosphor); opacity: 0.85; }
+
+/* Si hay unidades en ruta, su contador pulsa */
+.stat--enruta .stat-num {
+  animation: enruta-pulse 1.4s ease-in-out infinite;
 }
 
 /* ---------------------------------------------------------
@@ -73,18 +132,27 @@
   border-left: 1px solid var(--dim);
 }
 
-/* Filas del cuerpo */
+/* Filas del cuerpo: entran escalonadas (--i inline por fila) */
+@keyframes fila-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
 .tabla-unidades tbody tr {
   border-bottom: 1px solid rgba(0, 92, 32, 0.35);
-  transition: background 0.1s ease;
+  transition: background 0.1s ease, box-shadow 0.1s ease;
+  animation: fila-in 0.25s ease-out both;
+  animation-delay: calc(var(--i, 0) * 55ms);
 }
 
 .tabla-unidades tbody tr:last-child {
   border-bottom: none;
 }
 
+/* Barrido de hover: tinte + barra de selección al borde izquierdo */
 .tabla-unidades tbody tr:hover {
-  background: rgba(0, 255, 65, 0.04);
+  background: rgba(0, 255, 65, 0.06);
+  box-shadow: inset 3px 0 0 var(--phosphor);
 }
 
 .tabla-unidades tbody td {
@@ -111,16 +179,41 @@
 }
 
 /* ---------------------------------------------------------
-   Indicador de estado (badge ●)
+   Chip de tipo de unidad (ALS / BLS)
+   --------------------------------------------------------- */
+.chip {
+  display: inline-block;
+  padding: 0.06rem 0.55rem;
+  border: 1px solid currentColor;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip--als {
+  color: var(--phosphor);
+  background: rgba(0, 255, 65, 0.08);
+}
+
+.chip--bls {
+  color: rgba(0, 255, 65, 0.55);
+}
+
+/* ---------------------------------------------------------
+   Indicador de estado (pill con ●)
    --------------------------------------------------------- */
 .estado-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid currentColor;
   font-family: var(--font-display);
   font-size: 0.95rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .estado-badge::before {
@@ -131,25 +224,28 @@
 
 /* ---------------------------------------------------------
    Variantes de estado
-   El color aplica al indicador y al texto de estado, no al
-   fondo entero de la fila (mantiene legibilidad).
+   El color aplica al pill (borde + texto + fondo tenue),
+   no al fondo entero de la fila (mantiene legibilidad).
    --------------------------------------------------------- */
 
 /* Disponible — phosphor (verde lleno) */
 .fila--disponible .estado-badge {
   color: var(--phosphor);
+  background: rgba(0, 255, 65, 0.10);
   text-shadow: var(--glow-phosphor);
 }
 
 /* EnRuta — amber (ámbar, en movimiento) */
 .fila--enruta .estado-badge {
   color: var(--amber);
+  background: rgba(255, 176, 0, 0.10);
   text-shadow: var(--glow-amber);
 }
 
 /* EnEscena — amber levemente más brillante, sin pulso extra */
 .fila--enescena .estado-badge {
   color: var(--amber);
+  background: rgba(255, 176, 0, 0.14);
   text-shadow: var(--glow-amber), 0 0 24px rgba(255, 176, 0, 0.25);
   letter-spacing: 0.1em;
 }
@@ -167,11 +263,11 @@
 }
 
 /* ---------------------------------------------------------
-   Animación de pulso para filas EnRuta (sutil)
+   Animación de pulso para estados EnRuta (sutil)
    --------------------------------------------------------- */
 @keyframes enruta-pulse {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.88; }
+  50%       { opacity: 0.82; }
 }
 
 .fila--enruta .estado-badge::before {
@@ -193,7 +289,7 @@
 /* ---------------------------------------------------------
    Encabezado de la vista
    Hereda .consola-titulo y .consola-subtitulo de crt.css;
-   solo ajustamos el margen inferior antes de la tabla.
+   solo ajustamos el margen inferior antes del tablero.
    --------------------------------------------------------- */
 .unidades-header {
   margin-bottom: 1.75rem;
