@@ -18,6 +18,10 @@ def _consola_estado_limpio() -> Iterator[None]:
     cruzada (incl. entre archivos de test).
     """
     app.state.estados_unidades = {}
+    app.state.incidentes_pendientes = {}
+    app.state.seq_incidentes = 0
     yield
     app.state.estados_unidades = {}
+    app.state.incidentes_pendientes = {}
+    app.state.seq_incidentes = 0
     app.dependency_overrides.clear()

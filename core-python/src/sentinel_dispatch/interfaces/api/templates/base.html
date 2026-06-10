@@ -11,22 +11,31 @@
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=VT323&family=JetBrains+Mono:wght@400;500&display=swap">
 
-  <!-- Hoja de estilos CRT -->
-  <link rel="stylesheet" href="/static/crt.css">
+  <!-- Hoja de estilos CRT (con cache-busting: ver VERSION_ESTATICOS en web.py) -->
+  <link rel="stylesheet" href="/static/crt.css?v={{ version_estaticos }}">
 
   {% block extra_head %}{% endblock %}
 </head>
 <body>
 
-  <!-- Overlay de scanlines: fixed, cubre todo, no intercepta eventos -->
+  <!-- Overlays CRT: scanlines + viñeta del tubo. Fijos, no interceptan eventos -->
   <div class="scanlines" aria-hidden="true"></div>
+  <div class="vineta" aria-hidden="true"></div>
 
   <nav class="consola-nav">
     <span class="consola-nav__marca">SENTINEL-DISPATCH</span>
-    <a href="/consola/triaje" class="{% if vista_activa == 'triaje' %}activo{% endif %}">TRIAJE</a>
-    <a href="/consola/despacho" class="{% if vista_activa == 'despacho' %}activo{% endif %}">DESPACHO</a>
-    <a href="/consola/unidades" class="{% if vista_activa == 'unidades' %}activo{% endif %}">UNIDADES</a>
-    <a href="/consola/log" class="{% if vista_activa == 'log' %}activo{% endif %}">LOG</a>
+    {# La nav muestra las vistas habilitadas (env SENTINEL_VISTAS) y siempre
+       la vista activa, aunque esté deshabilitada (deep link). #}
+    {% for slug, href, etiqueta in [
+        ('triaje',   '/consola/triaje',   'TRIAJE'),
+        ('despacho', '/consola/despacho', 'DESPACHO'),
+        ('unidades', '/consola/unidades', 'UNIDADES'),
+        ('log',      '/consola/log',      'LOG'),
+    ] %}
+      {% if slug in vistas_habilitadas() or slug == vista_activa %}
+        <a href="{{ href }}" class="{% if vista_activa == slug %}activo{% endif %}">{{ etiqueta }}</a>
+      {% endif %}
+    {% endfor %}
   </nav>
 
   <main class="consola {% block consola_clase %}{% endblock %}">
@@ -37,9 +46,22 @@
     <span>SENTINEL-DISPATCH v1</span>
     <span class="status-ok">■ SISTEMA ACTIVO</span>
     <span>SAMU — IV REGIÓN</span>
+    <span class="status-reloj"><span id="status-reloj">--:--:--</span><span class="cursor-bloque">█</span></span>
   </footer>
 
   <!-- HTMX 2.x — hipermedia sin SPA -->
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+  <!-- Reloj local de la status bar (decorativo, sin dependencias) -->
+  <script>
+    (function () {
+      var reloj = document.getElementById('status-reloj');
+      function tick() {
+        reloj.textContent = new Date().toLocaleTimeString('es-CL', { hour12: false });
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
 </body>
 </html>

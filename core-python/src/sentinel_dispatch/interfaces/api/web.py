@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -59,6 +60,38 @@ DIRECTORIO_ESTATICOS = _DIR_BASE / "static"
 
 plantillas = Jinja2Templates(directory=str(DIRECTORIO_PLANTILLAS))
 
+# Vistas que la nav de la consola ofrece. El default (presentación 2026-06)
+# muestra solo triaje + unidades; la consola completa se reactiva con
+# ``SENTINEL_VISTAS=triaje,despacho,unidades,log`` (o cualquier subconjunto).
+# Controla solo la navegación: las rutas siguen registradas y accesibles por
+# URL directa (deep links y tests no cambian), y la vista activa siempre
+# aparece en la nav aunque no esté habilitada.
+_VISTAS_TODAS = ("triaje", "despacho", "unidades", "log")
+_VISTAS_DEFAULT = ("triaje", "unidades")
+
+
+def vistas_habilitadas() -> tuple[str, ...]:
+    """Vistas visibles en la nav, desde env ``SENTINEL_VISTAS`` o el default.
+
+    Se evalúa en cada render (es un global Jinja invocable), así los tests
+    pueden variar el env sin reimportar el módulo. Valores desconocidos en el
+    CSV se ignoran; un CSV sin valores válidos cae al default.
+    """
+    env = os.environ.get("SENTINEL_VISTAS")
+    if not env:
+        return _VISTAS_DEFAULT
+    habilitadas = tuple(v for v in (s.strip() for s in env.split(",")) if v in _VISTAS_TODAS)
+    return habilitadas or _VISTAS_DEFAULT
+
+
+plantillas.env.globals["vistas_habilitadas"] = vistas_habilitadas
+
+# Cache-busting de los estáticos: las plantillas anexan ?v=<versión> a cada
+# <link>/<script> de /static. Bump manual al cambiar CSS/JS — sin esto, los
+# navegadores que visitaron la consola siguen sirviendo la hoja vieja cacheada.
+VERSION_ESTATICOS = "20260609-3"
+plantillas.env.globals["version_estaticos"] = VERSION_ESTATICOS
+
 router = APIRouter(tags=["consola"])
 
 _log = logging.getLogger(__name__)
@@ -96,6 +129,45 @@ async def vista_triaje(request: Request) -> HTMLResponse:
     )
 
 
+# Bbox urbano de la conurbación La Serena-Coquimbo para generar incidentes
+# de demo: (lat_min, lat_max, lon_min, lon_max). Más apretado que el bbox de
+# cobertura del grafo, así las balizas caen en la trama urbana.
+_BBOX_URBANO = (-29.98, -29.88, -71.34, -71.22)
+
+
+def obtener_incidentes_pendientes(request: Request) -> dict[str, dict[str, Any]]:
+    """Dependencia: incidentes generados desde el triaje, pendientes de despacho.
+
+    Overlay en memoria (mismo patrón que :func:`obtener_estados_unidades`):
+    cada clasificación de triaje agrega una baliza que la vista de despacho
+    pinta en el mapa; despacharla la consume. No persiste (v1, ADR-0022).
+    """
+    pendientes = getattr(request.app.state, "incidentes_pendientes", None)
+    if pendientes is None:
+        pendientes = {}
+        request.app.state.incidentes_pendientes = pendientes
+    return cast("dict[str, dict[str, Any]]", pendientes)
+
+
+def _coordenadas_incidente_aleatorio(grafo: GrafoVial | None) -> tuple[float, float]:
+    """Punto aleatorio de la conurbación, snapeado a la red vial si hay grafo.
+
+    Sin grafo (tests con ASGITransport, server aún cargándolo) se usa el punto
+    crudo del bbox: suficiente para pintar la baliza; el despacho posterior
+    snapea de todas formas.
+    """
+    # S311: random no criptográfico — correcto acá, es ubicación de demo.
+    lat = random.uniform(_BBOX_URBANO[0], _BBOX_URBANO[1])  # noqa: S311
+    lon = random.uniform(_BBOX_URBANO[2], _BBOX_URBANO[3])  # noqa: S311
+    if grafo is not None:
+        try:
+            nodo = grafo.nodo_mas_cercano(lat, lon)
+            return grafo.coordenadas(nodo)
+        except NodoFueraDeRangoError:
+            pass
+    return (lat, lon)
+
+
 @router.post("/consola/triaje/clasificar", response_class=HTMLResponse)
 async def clasificar_triaje(
     request: Request,
@@ -105,6 +177,7 @@ async def clasificar_triaje(
     dolor_toracico: NivelDolorToracico = Form(...),
     dificultad_respiratoria: bool = Form(...),
     grupo_etario: GrupoEtario = Form(...),
+    pendientes: dict[str, dict[str, Any]] = Depends(obtener_incidentes_pendientes),
 ) -> HTMLResponse:
     """Clasifica una respuesta de triaje y devuelve el fragmento de resultado.
 
@@ -122,6 +195,22 @@ async def clasificar_triaje(
     )
     categoria = clasificar_mpds(respuesta)
     severidad, descripcion = _PRESENTACION[categoria]
+
+    # Puente triaje → despacho: cada clasificación genera un incidente de demo
+    # en un punto aleatorio de la conurbación; queda como baliza en el mapa
+    # hasta que el operador lo despache (o reinicie la consola).
+    lat, lon = _coordenadas_incidente_aleatorio(getattr(request.app.state, "grafo", None))
+    secuencia = getattr(request.app.state, "seq_incidentes", 0) + 1
+    request.app.state.seq_incidentes = secuencia
+    incidente_id = f"I-TRIAJE-{secuencia:03d}"
+    pendientes[incidente_id] = {
+        "id": incidente_id,
+        "lat": round(lat, 6),
+        "lon": round(lon, 6),
+        "categoria_mpds": categoria.value,
+        "timestamp_iso": _ahora_iso_z(),
+    }
+
     return plantillas.TemplateResponse(
         request=request,
         name="_resultado_triaje.html",
@@ -129,6 +218,7 @@ async def clasificar_triaje(
             "categoria": categoria.value,
             "severidad": severidad,
             "descripcion": descripcion,
+            "incidente_id": incidente_id,
         },
     )
 
@@ -432,9 +522,11 @@ async def ejecutar_despacho(
     lat: float = Form(...),
     lon: float = Form(...),
     categoria_mpds: CategoriaMPDS = Form(...),
+    incidente_id: str | None = Form(None),
     grafo: GrafoVial = Depends(obtener_grafo),
     repo: JsonlRepositorioEventos | None = Depends(obtener_repositorio_eventos),
     estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
+    pendientes: dict[str, dict[str, Any]] = Depends(obtener_incidentes_pendientes),
 ) -> dict[str, Any]:
     """Despacha la mejor unidad para el incidente clickeado y devuelve JSON.
 
@@ -442,7 +534,9 @@ async def ejecutar_despacho(
     bloque ``geo`` con coordenadas Leaflet (``[lat, lon]``). Además mantiene
     la consola "viva": marca la unidad elegida como ``EnRuta`` en el overlay
     (queda excluida del próximo despacho) y registra un ``despacho_creado``
-    en el log JSONL si hay repositorio disponible.
+    en el log JSONL si hay repositorio disponible. Si ``incidente_id``
+    referencia una baliza del triaje (overlay de pendientes), el despacho
+    exitoso la consume y el evento se loguea con ese id.
     """
     try:
         nodo_incidente = grafo.nodo_mas_cercano(lat, lon)
@@ -452,8 +546,9 @@ async def ejecutar_despacho(
             detail={"mensaje": str(exc), "lat": lat, "lon": lon},
         ) from exc
 
+    id_incidente = incidente_id if incidente_id and incidente_id in pendientes else "I-CONSOLA"
     incidente = Incidente(
-        id="I-CONSOLA",
+        id=id_incidente,
         lat=lat,
         lon=lon,
         categoria_mpds=categoria_mpds,
@@ -467,6 +562,8 @@ async def ejecutar_despacho(
     # Si se introduce concurrencia/await aquí, envolver con un lock por-app.
     if resultado.elegida is not None:
         estados[resultado.elegida.id] = EstadoUnidad.EN_RUTA
+        # Despacho concretado: la baliza del triaje (si la hubo) queda atendida.
+        pendientes.pop(id_incidente, None)
     if repo is not None:
         _registrar_despacho(repo, core)
 
@@ -494,11 +591,22 @@ async def red_vial(
     return {"calles": calles}
 
 
+@router.get("/consola/despacho/incidentes")
+async def incidentes_pendientes(
+    pendientes: dict[str, dict[str, Any]] = Depends(obtener_incidentes_pendientes),
+) -> dict[str, list[dict[str, Any]]]:
+    """Balizas pendientes generadas desde el triaje (puente triaje → despacho)."""
+    return {"incidentes": list(pendientes.values())}
+
+
 @router.post("/consola/despacho/reset")
 async def reset_flota(
     estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
+    pendientes: dict[str, dict[str, Any]] = Depends(obtener_incidentes_pendientes),
 ) -> dict[str, int]:
-    """Libera la flota: limpia el overlay (todas vuelven al estado del dataset)."""
+    """Reinicia la consola: libera la flota y descarta las balizas pendientes."""
     liberadas = len(estados)
+    descartados = len(pendientes)
     estados.clear()
-    return {"unidades_liberadas": liberadas}
+    pendientes.clear()
+    return {"unidades_liberadas": liberadas, "incidentes_descartados": descartados}

@@ -58,6 +58,18 @@
   user-select: none;
 }
 
+/* Contadores por severidad al centro de la barra */
+.log-conteos {
+  display: inline-flex;
+  gap: 1.1rem;
+  font-size: 0.85rem;
+}
+
+.conteo--ok   { color: var(--phosphor); text-shadow: 0 0 6px rgba(0, 255, 65, 0.5); }
+.conteo--warn { color: var(--amber); }
+.conteo--crit { color: var(--crit); }
+.conteo--info { color: var(--dim); }
+
 /* ---------------------------------------------------------
    Contenedor de scroll — la "pantalla" del log
    --------------------------------------------------------- */
@@ -101,6 +113,13 @@
 /* ---------------------------------------------------------
    Línea individual de evento
    --------------------------------------------------------- */
+/* Cada línea entra escalonada, como tail -f reproduciéndose.
+   El delay se acota: con cientos de eventos no se espera minutos. */
+@keyframes evento-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
 .evento {
   display: grid;
   grid-template-columns:
@@ -117,8 +136,10 @@
   font-size: 0.83rem;
   line-height: 1.5;
   border-left: 3px solid transparent;
-  transition: background 0.08s ease;
+  transition: background 0.08s ease, filter 0.08s ease;
   white-space: nowrap;
+  animation: evento-in 0.2s ease-out both;
+  animation-delay: min(calc(var(--i, 0) * 35ms), 900ms);
 }
 
 /* Permite que cada celda encoja bajo su contenido (evita el solapamiento
@@ -129,6 +150,7 @@
 
 .evento:hover {
   background: rgba(0, 255, 65, 0.05);
+  filter: brightness(1.25);
 }
 
 /* Timestamp — siempre en --dim */
@@ -144,11 +166,15 @@
   user-select: none;
 }
 
-/* Tipo del evento — mayúsculas, coloreado por token via borde + propio */
+/* Tipo del evento — chip de nivel, coloreado por token */
 .evento-tipo {
   text-transform: uppercase;
   letter-spacing: 0.07em;
   font-weight: 600;
+  font-size: 0.75rem;
+  border: 1px solid currentColor;
+  padding: 0 0.45em;
+  justify-self: start;
 }
 
 /* IDs — dimmed */
@@ -219,6 +245,21 @@
 
 .evento--info .evento-tipo {
   color: var(--dim);
+}
+
+/* ---------------------------------------------------------
+   Prompt vivo al final del log (tail del terminal)
+   --------------------------------------------------------- */
+.log-tail {
+  padding: 0.3rem 0.9rem 0.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.83rem;
+  color: var(--phosphor);
+}
+
+.log-tail .log-prompt {
+  color: var(--dim);
+  margin-right: 0.3em;
 }
 
 /* ---------------------------------------------------------

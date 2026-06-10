@@ -24,29 +24,12 @@
   flex-wrap: wrap;
 }
 
-/* Categoría MPDS */
+/* Categoría MPDS — control segmentado (estilos base en crt.css);
+   los radios de Alpha→Echo escalan de phosphor a crit. */
 .campo-categoria {
-  flex: 0 0 auto;
-  min-width: 280px;
-}
-
-.campo-categoria label {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--phosphor);
-  margin-bottom: 0.3rem;
-}
-
-.campo-categoria label::before {
-  content: '▸ ';
-  color: var(--dim);
-}
-
-.campo-categoria select {
-  width: 100%;
+  flex: 1 1 360px;
+  min-width: 320px;
+  margin-bottom: 0;
 }
 
 /* Coordenadas clickeadas */
@@ -149,13 +132,94 @@
   position: relative;
 }
 
-/* Leaflet sobreescribe background con blanco; se anula aquí */
+/* Esquinas HUD del visor táctico — por encima de los panes de Leaflet
+   (markers ~600, popups ~700), sin interceptar clics. */
+#mapa::before,
+#mapa::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--phosphor);
+  z-index: 800;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 65, 0.6));
+}
+
+#mapa::before {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+}
+
+#mapa::after {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+}
+
+/* Leaflet sobreescribe background con blanco; se anula aquí.
+   Cursor de mira: el clic ubica el incidente. */
 .leaflet-container {
   background: var(--bg) !important;
   font-family: var(--font-mono);
+  cursor: crosshair !important;
 }
 
-/* Controles de zoom — estética phosphor */
+.leaflet-dragging .leaflet-container {
+  cursor: grabbing !important;
+}
+
+/* Ruta A*: guiones en movimiento hacia el incidente (SVG de Leaflet) */
+@keyframes ruta-flujo {
+  to { stroke-dashoffset: -16; }
+}
+
+.ruta-astar {
+  stroke-dasharray: 10 6;
+  animation: ruta-flujo 0.9s linear infinite;
+}
+
+/* Marcador del incidente: pulso de baliza */
+@keyframes baliza {
+  0%, 100% { opacity: 0.9; }
+  50%       { opacity: 0.45; }
+}
+
+.marcador-incidente {
+  animation: baliza 1.2s ease-in-out infinite;
+}
+
+/* Balizas pendientes del triaje: anillo rojo pulsante, clickeable */
+.marcador-pendiente {
+  animation: baliza 1.6s ease-in-out infinite;
+  cursor: pointer;
+}
+
+/* Tooltip de las balizas — estética terminal, sin redondeos */
+.leaflet-tooltip {
+  background: var(--panel);
+  color: var(--phosphor);
+  border: 1px solid var(--phosphor);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.25);
+}
+
+.leaflet-tooltip-top::before {
+  border-top-color: var(--phosphor);
+}
+
+/* Controles de zoom — estética phosphor, sin redondeos */
+.leaflet-control-zoom,
+.leaflet-control-zoom a {
+  border-radius: 0 !important;
+}
+
 .leaflet-control-zoom a {
   background: var(--panel) !important;
   color: var(--phosphor) !important;
@@ -204,6 +268,13 @@
   letter-spacing: 0.04em;
 }
 
+/* Cursor parpadeante en el placeholder, como en triaje */
+.panel-resultado .placeholder::after {
+  content: '█';
+  margin-left: 0.3em;
+  animation: blink-cursor 1s step-end infinite;
+}
+
 /* Variante: despacho óptimo */
 .panel-resultado.resultado--optimo {
   border-color: var(--phosphor);
@@ -218,18 +289,20 @@
   box-shadow: 0 0 14px rgba(255, 176, 0, 0.22), inset 0 0 12px rgba(255, 176, 0, 0.05);
 }
 
-/* Variante: saturación / sin unidad / error */
+/* Variante: saturación / sin unidad / error — pulso de alarma (crt.css) */
 .panel-resultado.resultado--critico {
   border-color: var(--crit);
   color: var(--crit);
   box-shadow: 0 0 14px rgba(255, 0, 60, 0.28), inset 0 0 12px rgba(255, 0, 60, 0.07);
+  animation: alarma-crit 1.6s ease-in-out infinite;
 }
 
-/* Tabla interna del resultado */
+/* Tabla interna del resultado — se materializa al renderizar (crt.css) */
 .resultado-tabla {
   width: 100%;
   border-collapse: collapse;
   margin-top: 0.75rem;
+  animation: materializar 0.3s steps(9, end) both;
 }
 
 .resultado-tabla td {
