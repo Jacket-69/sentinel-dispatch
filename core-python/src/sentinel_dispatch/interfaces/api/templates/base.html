@@ -27,10 +27,11 @@
     {# La nav muestra las vistas habilitadas (env SENTINEL_VISTAS) y siempre
        la vista activa, aunque esté deshabilitada (deep link). #}
     {% for slug, href, etiqueta in [
-        ('triaje',   '/consola/triaje',   'TRIAJE'),
-        ('despacho', '/consola/despacho', 'DESPACHO'),
-        ('unidades', '/consola/unidades', 'UNIDADES'),
-        ('log',      '/consola/log',      'LOG'),
+        ('triaje',     '/consola/triaje',     'TRIAJE'),
+        ('despacho',   '/consola/despacho',   'DESPACHO'),
+        ('unidades',   '/consola/unidades',   'UNIDADES'),
+        ('log',        '/consola/log',        'LOG'),
+        ('validacion', '/consola/validacion', 'VALIDACIÓN'),
     ] %}
       {% if slug in vistas_habilitadas() or slug == vista_activa %}
         <a href="{{ href }}" class="{% if vista_activa == slug %}activo{% endif %}">{{ etiqueta }}</a>

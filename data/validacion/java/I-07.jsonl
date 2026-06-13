@@ -1,0 +1,1 @@
+{"incidente_id":"I-07","categoria_mpds":"Delta","unidad_seleccionada":{"id":"U06"},"despacho_suboptimo":false,"motivo":"optimo","eta_segundos":23.920076331077176,"costo":{"T_viaje":23.920076331077176,"penalizacion":0.0,"total":23.920076331077176},"ruta":["297116528","989534348","989534963"]}

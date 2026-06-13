@@ -1,0 +1,1 @@
+{"incidente_id":"I-05","categoria_mpds":"Charlie","unidad_seleccionada":{"id":"U05"},"despacho_suboptimo":false,"motivo":"optimo","eta_segundos":17.776262506438172,"costo":{"T_viaje":17.776262506438172,"penalizacion":0.0,"total":17.776262506438172},"ruta":["1054581612","1054544062","1054581495","1054581704","1054581520"]}
