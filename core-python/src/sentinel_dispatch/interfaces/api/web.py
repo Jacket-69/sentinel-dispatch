@@ -45,6 +45,11 @@ from sentinel_dispatch.domain.triaje import (
     RespuestaTriaje,
     clasificar_mpds,
 )
+from sentinel_dispatch.interfaces.api.validacion import (
+    FECHA_FIXTURES,
+    ResultadoValidacion,
+    comparar_validacion_dual,
+)
 from sentinel_dispatch.ports.repositorio_eventos import (
     EventoDuplicadoError,
     EventoLog,
@@ -66,7 +71,7 @@ plantillas = Jinja2Templates(directory=str(DIRECTORIO_PLANTILLAS))
 # Controla solo la navegación: las rutas siguen registradas y accesibles por
 # URL directa (deep links y tests no cambian), y la vista activa siempre
 # aparece en la nav aunque no esté habilitada.
-_VISTAS_TODAS = ("triaje", "despacho", "unidades", "log")
+_VISTAS_TODAS = ("triaje", "despacho", "unidades", "log", "validacion")
 _VISTAS_DEFAULT = ("triaje", "unidades")
 
 
@@ -89,7 +94,7 @@ plantillas.env.globals["vistas_habilitadas"] = vistas_habilitadas
 # Cache-busting de los estáticos: las plantillas anexan ?v=<versión> a cada
 # <link>/<script> de /static. Bump manual al cambiar CSS/JS — sin esto, los
 # navegadores que visitaron la consola siguen sirviendo la hoja vieja cacheada.
-VERSION_ESTATICOS = "20260609-3"
+VERSION_ESTATICOS = "20260612-1"
 plantillas.env.globals["version_estaticos"] = VERSION_ESTATICOS
 
 router = APIRouter(tags=["consola"])
@@ -395,6 +400,35 @@ async def vista_log(
         context={
             "eventos": [_evento_vm(e) for e in eventos],
             "vista_activa": "log",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Validación dual RT-02 — Python vs Java lado a lado (ADR-0008)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/consola/validacion", response_class=HTMLResponse)
+async def vista_validacion(
+    request: Request,
+    resultado: ResultadoValidacion = Depends(comparar_validacion_dual),
+) -> HTMLResponse:
+    """Validación dual RT-02: cálculos de ambos núcleos lado a lado.
+
+    Compara las fixtures commiteadas en ``data/validacion/`` (outputs reales
+    de los 12 incidentes del SRS en core-python y core-java) con las mismas
+    tolerancias del validador canónico del CI. La comparación corre en cada
+    render (ver :mod:`sentinel_dispatch.interfaces.api.validacion`).
+    """
+    return plantillas.TemplateResponse(
+        request=request,
+        name="validacion.html",
+        context={
+            "filas": resultado.filas,
+            "resumen": resultado.resumen,
+            "fecha_fixtures": FECHA_FIXTURES,
+            "vista_activa": "validacion",
         },
     )
 

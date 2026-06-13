@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}VALIDACIÓN — SENTINEL-DISPATCH{% endblock %}
+
+{% block extra_head %}<link rel="stylesheet" href="/static/validacion.css?v={{ version_estaticos }}">{% endblock %}
+
+{% block consola_clase %}consola--ancha{% endblock %}
+
+{% block content %}
+
+<header class="validacion-header">
+  <h1 class="consola-titulo">VALIDACIÓN DUAL</h1>
+  <p class="consola-subtitulo">// RT-02 — DOS IMPLEMENTACIONES INDEPENDIENTES · MISMO DATASET · MISMO RESULTADO</p>
+</header>
+
+<div class="tablero-validacion">
+  <div class="stat {% if resumen.paridad %}stat--ok{% else %}stat--alerta{% endif %}">
+    <span class="stat-num">{{ resumen.ok }}/{{ resumen.total }}</span>
+    <span class="stat-label">Paridad OK</span>
+  </div>
+  <div class="stat {% if resumen.warn %}stat--warn{% else %}stat--cero{% endif %}">
+    <span class="stat-num">{{ resumen.warn }}</span>
+    <span class="stat-label">Warn</span>
+  </div>
+  <div class="stat {% if resumen.fail or resumen.missing %}stat--alerta{% else %}stat--cero{% endif %}">
+    <span class="stat-num">{{ resumen.fail + resumen.missing }}</span>
+    <span class="stat-label">Fail / Missing</span>
+  </div>
+  <div class="stat stat--delta">
+    <span class="stat-num">{{ '%.3f'|format(resumen.delta_eta_max_pct) }}<span class="stat-unidad">%</span></span>
+    <span class="stat-label">Δ ETA máx</span>
+  </div>
+  <div class="stat stat--delta">
+    <span class="stat-num">{{ '%.3f'|format(resumen.delta_costo_max_pct) }}<span class="stat-unidad">%</span></span>
+    <span class="stat-label">Δ costo máx</span>
+  </div>
+</div>
+
+<div class="tabla-validacion-wrap">
+  <table class="tabla-validacion" aria-label="Validación dual RT-02: Python vs Java por incidente">
+    <thead>
+      <tr>
+        <th scope="col" rowspan="2">ID</th>
+        <th scope="colgroup" colspan="2">CATEGORÍA MPDS</th>
+        <th scope="colgroup" colspan="2">UNIDAD</th>
+        <th scope="colgroup" colspan="3">ETA (S)</th>
+        <th scope="colgroup" colspan="3">COSTO TOTAL</th>
+        <th scope="colgroup" colspan="3">RUTA (NODOS)</th>
+        <th scope="col" rowspan="2">VEREDICTO</th>
+      </tr>
+      <tr class="fila-subheader">
+        <th scope="col">PY</th><th scope="col">JAVA</th>
+        <th scope="col">PY</th><th scope="col">JAVA</th>
+        <th scope="col">PY</th><th scope="col">JAVA</th><th scope="col">Δ%</th>
+        <th scope="col">PY</th><th scope="col">JAVA</th><th scope="col">Δ%</th>
+        <th scope="col">PY</th><th scope="col">JAVA</th><th scope="col">EXTREMOS</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if filas %}
+        {% for f in filas %}
+        {% if f.veredicto == 'MISSING' %}
+        <tr class="fila--missing" style="--i: {{ loop.index0 }}">
+          <td class="col-id">{{ f.incidente_id }}</td>
+          <td colspan="13" class="col-missing">// {{ f.notas | join(' · ') | upper }}</td>
+          <td><span class="veredicto-badge veredicto--missing">MISSING</span></td>
+        </tr>
+        {% else %}
+        <tr class="fila--{{ f.veredicto | lower }}" style="--i: {{ loop.index0 }}">
+          <td class="col-id">{{ f.incidente_id }}</td>
+
+          <td><span class="chip-valor {% if f.categoria.estado != 'ok' %}chip-valor--diff{% endif %}">{{ f.categoria.python }}</span></td>
+          <td><span class="chip-valor {% if f.categoria.estado != 'ok' %}chip-valor--diff{% endif %}">{{ f.categoria.java }}</span></td>
+
+          <td><span class="chip-valor {% if f.unidad.estado != 'ok' %}chip-valor--diff{% endif %}">{{ f.unidad.python }}</span></td>
+          <td><span class="chip-valor {% if f.unidad.estado != 'ok' %}chip-valor--diff{% endif %}">{{ f.unidad.java }}</span></td>
+
+          <td class="col-num">{{ '%.2f'|format(f.eta.python) if f.eta.python is not none else '—' }}</td>
+          <td class="col-num">{{ '%.2f'|format(f.eta.java) if f.eta.java is not none else '—' }}</td>
+          <td class="col-num"><span class="delta delta--{{ f.eta.estado }}">{{ '%.3f'|format(f.eta.delta_pct) ~ ' %' if f.eta.delta_pct is not none else '—' }}</span></td>
+
+          <td class="col-num">{{ '%.2f'|format(f.costo_total.python) if f.costo_total.python is not none else '—' }}</td>
+          <td class="col-num">{{ '%.2f'|format(f.costo_total.java) if f.costo_total.java is not none else '—' }}</td>
+          <td class="col-num"><span class="delta delta--{{ f.costo_total.estado }}">{{ '%.3f'|format(f.costo_total.delta_pct) ~ ' %' if f.costo_total.delta_pct is not none else '—' }}</span></td>
+
+          <td class="col-num">{{ f.ruta.nodos_python }}</td>
+          <td class="col-num">{{ f.ruta.nodos_java }}</td>
+          <td><span class="delta delta--{{ f.ruta.estado }}">{{ '=' if f.ruta.extremos_coinciden else '≠' }}</span></td>
+
+          <td>
+            <span class="veredicto-badge veredicto--{{ f.veredicto | lower }}"{% if f.notas %} title="{{ f.notas | join('; ') }}"{% endif %}>{{ f.veredicto }}</span>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      {% else %}
+        <tr class="fila-vacia">
+          <td colspan="15">// SIN FIXTURES DE VALIDACIÓN — ver data/validacion/README.md</td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<footer class="validacion-procedencia">
+  <span>// DATASET DE ACEPTACIÓN DEL SRS §2.12 — {{ resumen.total }} INCIDENTES</span>
+  <span>// FIXTURES GENERADAS {{ fecha_fixtures }} (data/validacion/)</span>
+  <span>// EL JOB CI «COMPARE» REVALIDA LA PARIDAD EN CADA PR</span>
+</footer>
+
+{% endblock %}
