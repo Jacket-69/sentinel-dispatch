@@ -1,0 +1,1 @@
+{"incidente_id": "I-09", "categoria_mpds": "Delta", "unidad_seleccionada": {"id": "U03"}, "despacho_suboptimo": false, "motivo": "optimo", "eta_segundos": 43.761027931180834, "costo": {"T_viaje": 43.761027931180834, "penalizacion": 0.0, "total": 43.761027931180834}, "ruta": ["1064753516", "1064724939", "1098897667", "703549730", "401399084", "401399073"]}
