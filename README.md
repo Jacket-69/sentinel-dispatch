@@ -88,21 +88,22 @@ sentinel-dispatch/
 
 ## Puesta en marcha
 
-**Requisitos:** Python **3.12**, [`uv`](https://docs.astral.sh/uv/). Para el core de validación: **JDK 21** + Maven (opcional). Para ruteo/consola reales: el grafo OSM precomputado.
+**Requisitos:** Python **3.12**, [`uv`](https://docs.astral.sh/uv/). Para la validación cruzada con el core Java: **JDK 21** + Maven (opcional).
+
+> El grafo OSM de la IV Región (`data/graphs/coquimbo.graphml`, ~21 MB) **viene versionado en el repo** (ADR-0010 §3). Clonar basta: no hay que generarlo para correr los tests, la consola ni la validación dual.
 
 ```bash
-# 1. Instalar dependencias del core primario
+# 1. Instalar dependencias del core primario (Python)
 cd core-python
 make install                 # uv sync --all-groups
 
-# 2. Precomputar el grafo OSM de la IV Región (~2 min, ~30–60 MB)
-make build-graph
-
-# 3. Levantar la consola web del operador (http://localhost:8000/consola/despacho)
+# 2. Levantar la consola web del operador (http://localhost:8000/consola/despacho)
 make dev                     # uv run uvicorn sentinel_dispatch.interfaces.api.main:app --reload
 ```
 
 > El `lifespan` de FastAPI carga el grafo OSM al arranque, por eso `make dev` tarda unos segundos en quedar listo.
+
+> **Regenerar el grafo** es opcional y solo hace falta si cambia la zona o la versión de OSMnx: `make build-graph` (~2 min, requiere internet/Overpass API). Regenerarlo puede alterar la paridad bit-exacta RT-02 — para QA, usa el grafo versionado.
 
 ### CLI
 
@@ -132,8 +133,10 @@ make lint          # ruff check + format --check
 make typecheck     # mypy strict
 make ci            # lint + typecheck + test (lo que corre en GitHub Actions)
 
-# Validación dual Python ↔ Java (RT-02), desde la raíz del monorepo:
-make compare       # tools/compare_outputs.py compara ambos outputs
+# Validación dual Python ↔ Java (RT-02), desde la raíz del monorepo
+# (genera los outputs de ambos cores y luego los compara; requiere JDK 21 + Maven):
+make test-dataset  # corre el dataset en ambos cores → /tmp/{python,java}-out/
+make compare       # tools/compare_outputs.py verifica la paridad bit-exacta
 ```
 
 ## Estado y calidad

@@ -8,17 +8,16 @@ Solo el **núcleo de cálculo**: triaje MPDS-subset + A* sobre GraphML + funció
 
 ## Cómo correr
 
-Pre-requisito: Java 21 LTS + Maven instalados.
+Pre-requisito: Java 21 LTS + Maven instalados. Lee el grafo y el dataset ya versionados en `data/` (no genera nada ni accede a red).
 
 ```bash
 # Desde core-java/
 mvn clean test            # build + tests JUnit 5
 mvn spotless:check        # formato
 mvn spotless:apply        # aplicar formato
-mvn exec:java -Dexec.mainClass="cl.ucen.sentinel.cli.Main"   # ejecutar CLI (esqueleto)
 ```
 
-Cuando esté implementado el `run-dataset`:
+Ejecutar `run-dataset` (despacha sobre el dataset y emite un JSONL por incidente, insumo de la validación dual RT-02):
 
 ```bash
 mvn exec:java -Dexec.mainClass="cl.ucen.sentinel.cli.Main" \
@@ -26,6 +25,8 @@ mvn exec:java -Dexec.mainClass="cl.ucen.sentinel.cli.Main" \
                               --graph ../data/graphs/coquimbo.graphml \
                               --out /tmp/java-out/"
 ```
+
+> Más simple: desde la raíz del monorepo, `make test-dataset` corre el `run-dataset` de ambos cores y `make compare` verifica la paridad bit-exacta.
 
 ## Estructura
 
@@ -43,7 +44,7 @@ core-java/
 
 ## Estado
 
-Esqueleto creado el 2026-05-15 (H0). Implementación real arranca post-H2 según roadmap (ver `ESTADO.md` del vault).
+Núcleo implementado (H3-J ✓): triaje MPDS-subset + A\* sobre GraphML + función de costo, con suite JUnit 5 verde y validación dual **RT-02 12/12 bit-exacto** contra `core-python`. Estado y roadmap vivos en el README raíz del repo y en el vault del proyecto.
 
 ## Cumplimiento RT
 
