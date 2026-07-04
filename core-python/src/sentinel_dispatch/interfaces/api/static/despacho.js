@@ -314,8 +314,9 @@
   /**
    * Dibuja la ruta y el marcador de base de unidad sobre el mapa.
    * @param {Object} geo — objeto geo de la respuesta.
+   * @param {string|null} etiquetaRuta — trazabilidad "U-XX → I-XXX" o null.
    */
-  function dibujarCapasMapa(geo) {
+  function dibujarCapasMapa(geo, etiquetaRuta) {
     limpiarCapasPrevias();
 
     /* Polyline de la ruta A* — la clase CSS anima el flujo de guiones
@@ -327,6 +328,11 @@
         opacity: 0.9,
         className: 'ruta-astar',
       }).addTo(map);
+
+      /* Trazabilidad: la ruta declara qué unidad va a qué incidente */
+      if (etiquetaRuta) {
+        polylineRuta.bindTooltip(etiquetaRuta, { sticky: true });
+      }
 
       map.fitBounds(polylineRuta.getBounds(), { padding: [40, 40] });
     }
@@ -340,6 +346,15 @@
         fillOpacity: 0.85,
         weight: 2,
       }).addTo(map);
+
+      /* Etiqueta fija con la unidad despachada, junto a su base */
+      if (etiquetaRuta) {
+        marcadorUnidad.bindTooltip(etiquetaRuta, {
+          permanent: true,
+          direction: 'top',
+          offset: [0, -8],
+        });
+      }
     }
 
     /* Los puntos deben quedar visibles sobre la línea de la ruta */
@@ -419,9 +434,14 @@
         return;
       }
 
-      /* Dibujar capas en el mapa (limpia previas) */
+      /* Dibujar capas en el mapa (limpia previas), con la etiqueta de
+         trazabilidad unidad → incidente cuando hubo despacho efectivo. */
       if (datos.geo) {
-        dibujarCapasMapa(datos.geo);
+        const conUnidad = datos.unidad_seleccionada && datos.motivo !== 'saturacion';
+        const etiqueta = conUnidad
+          ? `${datos.unidad_seleccionada.id} → ${datos.incidente_id}`
+          : null;
+        dibujarCapasMapa(datos.geo, etiqueta);
       } else {
         limpiarCapasPrevias();
       }

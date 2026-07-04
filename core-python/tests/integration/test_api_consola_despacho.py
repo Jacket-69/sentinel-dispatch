@@ -328,3 +328,62 @@ async def test_reset_descarta_las_balizas_pendientes() -> None:
         listado = await client.get("/consola/despacho/incidentes")
     assert reset.json()["incidentes_descartados"] == 1
     assert listado.json()["incidentes"] == []
+
+
+# --------------------------------------------------------------------------
+# Trazabilidad despacho ↔ flota: la fila EnRuta declara su destino
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_despacho_registra_asignacion_de_destino() -> None:
+    app.dependency_overrides[obtener_grafo] = lambda: _GrafoFake()
+    async with _cliente() as client:
+        response = await client.post("/consola/despacho/despachar", data=_DATOS_OK)
+    assert response.status_code == 200
+    body = response.json()
+    elegida = body["unidad_seleccionada"]["id"]
+    asignacion = app.state.asignaciones_unidades[elegida]
+    assert asignacion["incidente_id"] == "I-CONSOLA"
+    assert asignacion["categoria_mpds"] == "Charlie"
+    assert asignacion["eta_segundos"] == body["eta_segundos"]
+
+
+@pytest.mark.asyncio
+async def test_panel_muestra_destino_de_unidad_en_ruta() -> None:
+    app.state.estados_unidades = {"U01": EstadoUnidad.EN_RUTA}
+    app.state.asignaciones_unidades = {
+        "U01": {"incidente_id": "I-TRIAJE-007", "categoria_mpds": "Delta", "eta_segundos": 312.4}
+    }
+    async with _cliente() as client:
+        response = await client.get("/consola/unidades")
+    assert response.status_code == 200
+    cuerpo = response.text
+    assert "I-TRIAJE-007" in cuerpo
+    assert "Delta" in cuerpo
+    assert "ETA 5:12" in cuerpo  # 312 s → 5:12
+
+
+@pytest.mark.asyncio
+async def test_panel_ignora_asignacion_de_unidad_liberada() -> None:
+    # La asignación sin estado EnRuta (p. ej. tras liberar la unidad a mano)
+    # no se muestra: el destino acompaña solo a la unidad en movimiento.
+    app.state.estados_unidades = {}
+    app.state.asignaciones_unidades = {
+        "U01": {"incidente_id": "I-TRIAJE-007", "categoria_mpds": "Delta", "eta_segundos": 312.4}
+    }
+    async with _cliente() as client:
+        response = await client.get("/consola/unidades")
+    assert response.status_code == 200
+    assert "I-TRIAJE-007" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_reset_limpia_las_asignaciones() -> None:
+    app.state.estados_unidades = {"U01": EstadoUnidad.EN_RUTA}
+    app.state.asignaciones_unidades = {
+        "U01": {"incidente_id": "I-CONSOLA", "categoria_mpds": "Charlie", "eta_segundos": 100.0}
+    }
+    async with _cliente() as client:
+        await client.post("/consola/despacho/reset")
+    assert app.state.asignaciones_unidades == {}

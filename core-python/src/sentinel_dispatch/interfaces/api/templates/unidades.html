@@ -51,6 +51,7 @@
         <th scope="col">BASE</th>
         <th scope="col">POSICIÓN</th>
         <th scope="col">ESTADO</th>
+        <th scope="col">DESTINO</th>
       </tr>
     </thead>
     <tbody>
@@ -71,11 +72,25 @@
           <td>
             <span class="estado-badge">{{ u.estado }}</span>
           </td>
+          <td class="col-destino">
+            {% if u.destino_incidente %}
+            <span class="destino">
+              → {{ u.destino_incidente }}
+              {% if u.destino_categoria %}· {{ u.destino_categoria }}{% endif %}
+              {% if u.destino_eta_segundos is not none %}
+              {% set eta_s = u.destino_eta_segundos | int %}
+              · ETA {{ '%d:%02d'|format(eta_s // 60, eta_s % 60) }}
+              {% endif %}
+            </span>
+            {% else %}
+            <span class="destino destino--vacio">—</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       {% else %}
         <tr class="fila-vacia">
-          <td colspan="6">// SIN UNIDADES REGISTRADAS</td>
+          <td colspan="7">// SIN UNIDADES REGISTRADAS</td>
         </tr>
       {% endif %}
     </tbody>
