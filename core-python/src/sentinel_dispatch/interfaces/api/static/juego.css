@@ -1,0 +1,55 @@
+/* =========================================================
+   Sentinel-Dispatch — Minijuego "ambulancia al destino"
+   Complementa retro.css. Canvas pixelart dentro del panel
+   glossy del tema.
+   ========================================================= */
+
+.juego-wrap {
+  background: linear-gradient(to bottom, var(--card-top), var(--card-bottom));
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+  padding: 0.4rem;
+}
+
+#juego-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Pixelart nítido: sin suavizado al escalar el canvas */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: pointer;
+}
+
+.juego-controles {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.juego-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.juego-marcador {
+  font-size: 0.75rem;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: linear-gradient(to bottom, #fbfcfd, #e4e7ec);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 #fff;
+  padding: 0.1rem 0.7rem;
+}
+
+.juego-marcador strong {
+  color: var(--header-bottom);
+  font-family: var(--font-mono);
+}

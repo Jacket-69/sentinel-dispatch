@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}JUEGO — SENTINEL-DISPATCH{% endblock %}
+
+{% block extra_head %}<link rel="stylesheet" href="/static/juego.css?v={{ version_estaticos }}">{% endblock %}
+
+{% block content %}
+
+<header>
+  <h1 class="consola-titulo">AMBULANCIA AL DESTINO</h1>
+  <p class="consola-subtitulo">MINIJUEGO — ESQUIVA LOS OBSTÁCULOS Y LLEGA AL INCIDENTE</p>
+</header>
+
+<div class="panel" data-titulo="TURNO DE NOCHE">
+  <div class="juego-wrap">
+    <canvas id="juego-canvas" width="800" height="240"
+            aria-label="Minijuego de la ambulancia esquivando obstáculos"></canvas>
+  </div>
+  <div class="juego-controles">
+    <span class="juego-hint">ESPACIO / CLIC / TAP para saltar · la velocidad sube con la distancia</span>
+    <span class="juego-marcador">
+      RÉCORD <strong id="juego-record">0</strong> m
+    </span>
+  </div>
+</div>
+
+<script src="/static/juego.js?v={{ version_estaticos }}" defer></script>
+
+{% endblock %}
