@@ -1,0 +1,18 @@
+/* =========================================================
+   Sentinel-Dispatch — Vista A* didáctica
+   Complementa retro.css y reutiliza despacho.css (controles,
+   mapa, panel de resultado). Aquí solo lo propio de la vista.
+   ========================================================= */
+
+/* El control segmentado de velocidad es más angosto que el de MPDS */
+.campo-velocidad {
+  flex: 0 1 300px;
+  min-width: 240px;
+  margin-bottom: 0;
+}
+
+/* En esta vista el "resultado óptimo" incluye una desigualdad didáctica
+   con texto largo: que no lo recorte el nowrap heredado de la tabla. */
+#panel-astar .resultado-tabla td {
+  white-space: normal;
+}

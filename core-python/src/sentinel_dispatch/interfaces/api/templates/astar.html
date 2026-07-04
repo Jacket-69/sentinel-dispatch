@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}A* — SENTINEL-DISPATCH{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/static/despacho.css?v={{ version_estaticos }}">
+<link rel="stylesheet" href="/static/astar.css?v={{ version_estaticos }}">
+{% endblock %}
+
+{% block consola_clase %}consola--ancha{% endblock %}
+
+{% block content %}
+
+<header class="despacho-header">
+  <h1 class="consola-titulo">A* PASO A PASO</h1>
+  <p class="consola-subtitulo">EXPANSIÓN DE LA FRONTERA CON HEURÍSTICA HAVERSINE — VISTA DEMOSTRATIVA (SRS 2.6-B)</p>
+</header>
+
+<div class="panel despacho-controles" data-titulo="PARÁMETROS">
+  <div class="controles-fila">
+    <div class="campo campo-coords">
+      <label>Origen (1er clic)</label>
+      <span class="coords-display" id="coord-origen">SIN ORIGEN</span>
+    </div>
+    <div class="campo campo-coords">
+      <label>Destino (2do clic)</label>
+      <span class="coords-display" id="coord-destino">SIN DESTINO</span>
+    </div>
+    <fieldset class="campo campo-velocidad">
+      <legend>Velocidad de animación</legend>
+      <div class="segmento" id="segmento-velocidad">
+        <label class="opcion">
+          <input type="radio" name="velocidad_anim" value="60" checked>
+          <span>Lenta</span>
+        </label>
+        <label class="opcion">
+          <input type="radio" name="velocidad_anim" value="240">
+          <span>Media</span>
+        </label>
+        <label class="opcion">
+          <input type="radio" name="velocidad_anim" value="900">
+          <span>Rápida</span>
+        </label>
+      </div>
+    </fieldset>
+    <button type="button" class="btn-despachar" id="btn-trazar" disabled>TRAZAR ▶</button>
+    <button type="button" class="btn-reset" id="btn-limpiar">LIMPIAR</button>
+  </div>
+</div>
+
+<div id="mapa" aria-label="Mapa demostrativo del algoritmo A*"></div>
+
+<div class="panel panel-resultado" data-titulo="ALGORITMO" id="panel-astar">
+  <span class="placeholder">
+    MARCA ORIGEN Y DESTINO EN EL MAPA. LA ANIMACIÓN MUESTRA EL ORDEN REAL
+    EN QUE A* EXPANDE LA FRONTERA: SIEMPRE EL NODO DE MENOR f(n) = g(n) + h(n),
+    CON h(n) = HAVERSINE / V_MAX (COTA INFERIOR ADMISIBLE).
+  </span>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/astar.js?v={{ version_estaticos }}" defer></script>
+
+{% endblock %}
