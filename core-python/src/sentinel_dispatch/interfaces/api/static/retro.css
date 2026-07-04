@@ -1,0 +1,533 @@
+/* =========================================================
+   Sentinel-Dispatch — Consola retro Web 2.0 (~2010)
+   Gradientes glossy, bevels, sombras y texto letterpress.
+   Reemplaza a crt.css (ADR-0023). Sin build step. CSS puro.
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   Variables globales
+   --------------------------------------------------------- */
+:root {
+  /* Superficies */
+  --bg:           #d4d8de;
+  --bg-stripe:    #cdd2d9;
+  --panel:        #eceef2;
+  --panel-border: #9aa3b0;
+  --card-top:     #ffffff;
+  --card-bottom:  #e9ebef;
+  --card-border:  #b6bcc6;
+
+  /* Texto */
+  --text:  #24303c;
+  --muted: #6b7686;
+
+  /* Topbar / marca */
+  --header-top:    #6ea3d8;
+  --header-bottom: #35689f;
+  --header-border: #24486e;
+
+  /* Semánticos (base + tope glossy de su gradiente) */
+  --crit:     #c0392b;
+  --crit-top: #d95f4e;
+  --warn:     #d98f1f;
+  --warn-top: #ecab4a;
+  --ok:       #4e8f3c;
+  --ok-top:   #74ad60;
+  --info:     #3f74ad;
+  --info-top: #6795c7;
+
+  /* Tipografías de la época — sin webfonts */
+  --font-ui:   "Trebuchet MS", Tahoma, Verdana, sans-serif;
+  --font-mono: Consolas, "Courier New", monospace;
+
+  /* La firma visual: brillo superior + sombra proyectada (bevel) */
+  --bevel:        inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 2px 5px rgba(0, 0, 0, 0.25);
+  --bevel-card:   inset 0 1px 0 #fff, 0 1px 3px rgba(0, 0, 0, 0.25);
+  --bevel-boton:  inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --hundido:      inset 0 2px 4px rgba(0, 0, 0, 0.35);
+  --letterpress:  0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* ---------------------------------------------------------
+   Reset mínimo
+   --------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------------------------------------------------------
+   Base — fondo rayado diagonal, el texturizado de la época
+   --------------------------------------------------------- */
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--bg),
+    var(--bg) 6px,
+    var(--bg-stripe) 6px,
+    var(--bg-stripe) 12px
+  );
+  color: var(--text);
+  font: 14px/1.5 var(--font-ui);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   Contenedor principal
+   --------------------------------------------------------- */
+main.consola {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+/* Vistas con tablas/datos densos (panel de unidades, log) */
+main.consola.consola--ancha {
+  max-width: 1200px;
+}
+
+/* ---------------------------------------------------------
+   Encabezados de vista
+   --------------------------------------------------------- */
+.consola-titulo {
+  font-size: 1.7rem;
+  letter-spacing: 0.04em;
+  color: var(--header-bottom);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+  margin-bottom: 0.2rem;
+}
+
+.consola-subtitulo {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 1.6rem;
+}
+
+h2, h3 {
+  color: var(--header-bottom);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+h3 { font-size: 1.05rem; margin-bottom: 0.75rem; }
+
+/* ---------------------------------------------------------
+   Panel base — tarjeta glossy con pestaña de título
+   --------------------------------------------------------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  box-shadow: var(--bevel);
+  padding: 1.4rem 1.5rem 1.25rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+/* Título del panel: pestaña glossy azul montada sobre el borde */
+.panel::before {
+  content: attr(data-titulo);
+  display: block;
+  position: absolute;
+  top: -0.85em;
+  left: 0.9rem;
+  background: linear-gradient(to bottom, var(--header-top), var(--header-bottom));
+  border: 1px solid var(--header-border);
+  border-radius: 4px;
+  padding: 0.05rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: var(--letterpress);
+  box-shadow: var(--bevel-boton);
+}
+
+/* ---------------------------------------------------------
+   Formulario — etiquetas y leyendas
+   --------------------------------------------------------- */
+.campo {
+  margin-bottom: 1.1rem;
+  border: none;
+  padding: 0;
+}
+
+label,
+.campo legend {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+  padding: 0;
+}
+
+/* ---------------------------------------------------------
+   Formulario — select
+   --------------------------------------------------------- */
+select {
+  display: block;
+  width: 100%;
+  background: linear-gradient(to bottom, var(--card-top), var(--card-bottom));
+  color: var(--text);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  padding: 0.45rem 0.75rem;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  outline: none;
+  box-shadow: var(--bevel-card);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%236b7686'/%3E%3C/svg%3E"),
+    linear-gradient(to bottom, var(--card-top), var(--card-bottom));
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 0.75rem center, 0 0;
+  padding-right: 2.25rem;
+}
+
+select:focus {
+  border-color: var(--header-bottom);
+  box-shadow: 0 0 4px rgba(53, 104, 159, 0.6), var(--bevel-card);
+}
+
+/* ---------------------------------------------------------
+   Control segmentado (compartido triaje / despacho):
+   radios ocultos + botones contiguos glossy; el seleccionado
+   se "hunde" y toma el color de su escalación clínica.
+   --------------------------------------------------------- */
+.segmento {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.segmento .opcion {
+  flex: 1 1 auto;
+  position: relative;
+}
+
+.segmento input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmento span {
+  display: block;
+  text-align: center;
+  padding: 0.45rem 0.7rem;
+  background: linear-gradient(to bottom, var(--card-top), var(--card-bottom));
+  border: 1px solid var(--card-border);
+  margin-left: -1px;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  box-shadow: var(--bevel-card);
+  transition: background 0.1s ease, color 0.1s ease, box-shadow 0.1s ease;
+}
+
+.segmento .opcion:first-child span {
+  margin-left: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+.segmento .opcion:last-child span {
+  border-radius: 0 4px 4px 0;
+}
+
+.segmento span:hover {
+  background: linear-gradient(to bottom, #fff, #f2f4f7);
+  border-color: var(--panel-border);
+  z-index: 1;
+  position: relative;
+}
+
+.segmento input:focus-visible + span {
+  outline: 2px solid var(--header-top);
+  outline-offset: 1px;
+  z-index: 1;
+  position: relative;
+}
+
+/* Seleccionado neutro: azul glossy hundido */
+.segmento input:checked + span {
+  background: linear-gradient(to bottom, var(--info-top), var(--info));
+  border-color: var(--header-border);
+  color: #fff;
+  font-weight: bold;
+  text-shadow: var(--letterpress);
+  box-shadow: var(--hundido);
+  z-index: 2;
+  position: relative;
+}
+
+/* Seleccionado escalado: ámbar (hallazgo que sube la categoría) */
+.opcion--warn input:checked + span {
+  background: linear-gradient(to bottom, var(--warn-top), var(--warn));
+  border-color: #9c6710;
+}
+
+/* Seleccionado crítico: rojo (gatillo Delta/Echo) */
+.opcion--crit input:checked + span {
+  background: linear-gradient(to bottom, var(--crit-top), var(--crit));
+  border-color: #8e2a1f;
+}
+
+/* ---------------------------------------------------------
+   Botón de acción principal — glossy azul táctil
+   --------------------------------------------------------- */
+.btn-clasificar {
+  display: inline-block;
+  margin-top: 1.25rem;
+  padding: 0.55rem 2rem;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: var(--letterpress);
+  background: linear-gradient(to bottom, var(--info-top), var(--info));
+  border: 1px solid #2e5580;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: var(--bevel-boton);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn-clasificar:hover,
+.btn-clasificar:focus {
+  background: linear-gradient(to bottom, #7ba7d4, #3f74ad);
+  outline: none;
+}
+
+.btn-clasificar:active {
+  box-shadow: var(--hundido);
+}
+
+/* htmx: indicador de carga mientras espera respuesta */
+.btn-clasificar.htmx-request {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ---------------------------------------------------------
+   Panel de resultado — contenedor receptor htmx
+   --------------------------------------------------------- */
+#panel-resultado {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  box-shadow: var(--bevel);
+  padding: 1.25rem 1.5rem;
+  min-height: 5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+#panel-resultado .placeholder {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------
+   Fragmento de resultado — tarjeta glossy con la categoría;
+   cuatro variantes de severidad vía gradiente del encabezado.
+   --------------------------------------------------------- */
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.resultado {
+  background: linear-gradient(to bottom, var(--card-top), var(--card-bottom));
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  box-shadow: var(--bevel-card);
+  padding: 1rem 1.25rem;
+  position: relative;
+  animation: aparecer 0.25s ease-out both;
+}
+
+.resultado-categoria {
+  display: inline-block;
+  font-size: 1.9rem;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: #fff;
+  text-shadow: var(--letterpress);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  box-shadow: var(--bevel-boton);
+  padding: 0.15rem 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.resultado-descripcion {
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.resultado-label {
+  font-size: 0.72rem;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+/* Variantes: el bloque de categoría toma el gradiente semántico */
+.resultado--phosphor .resultado-categoria {
+  background: linear-gradient(to bottom, var(--ok-top), var(--ok));
+}
+
+.resultado--amber .resultado-categoria {
+  background: linear-gradient(to bottom, var(--warn-top), var(--warn));
+}
+
+.resultado--crit .resultado-categoria {
+  background: linear-gradient(to bottom, var(--crit-top), var(--crit));
+}
+
+.resultado--crit {
+  border-color: var(--crit);
+  box-shadow: 0 0 6px rgba(192, 57, 43, 0.45), var(--bevel-card);
+}
+
+.resultado--dim .resultado-categoria {
+  background: linear-gradient(to bottom, #8b95a3, var(--muted));
+}
+
+/* ---------------------------------------------------------
+   Separador de sección
+   --------------------------------------------------------- */
+.sep {
+  border: none;
+  border-top: 1px solid var(--card-border);
+  margin: 1.5rem 0;
+}
+
+/* ---------------------------------------------------------
+   Barra de estado inferior — franja gris biselada
+   --------------------------------------------------------- */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to bottom, var(--panel), #dfe2e8);
+  border-top: 1px solid var(--panel-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  padding: 0.25rem 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  gap: 2rem;
+  z-index: 100;
+}
+
+.status-bar .status-ok {
+  color: var(--ok);
+  font-weight: bold;
+}
+
+/* Reloj local al extremo derecho */
+.status-bar .status-reloj {
+  margin-left: auto;
+  color: var(--text);
+  font-family: var(--font-mono);
+  display: inline-flex;
+  gap: 0.35em;
+}
+
+/* El cursor de bloque del CRT ya no parpadea: queda como adorno fijo */
+.cursor-bloque {
+  display: none;
+}
+
+/* ---------------------------------------------------------
+   Topbar de navegación — gradiente azul glossy sticky
+   --------------------------------------------------------- */
+.consola-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: linear-gradient(to bottom, var(--header-top), var(--header-bottom));
+  border-bottom: 1px solid var(--header-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+  font-size: 0.82rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.consola-nav__marca {
+  font-size: 1.1rem;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: var(--letterpress);
+  margin-right: auto;
+}
+
+.consola-nav a {
+  color: #eaf1f8;
+  text-decoration: none;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-shadow: var(--letterpress);
+  transition: background 0.1s ease, box-shadow 0.1s ease;
+}
+
+.consola-nav a:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Vista activa: botón claro hundido, como pestaña presionada */
+.consola-nav a.activo {
+  background: linear-gradient(to bottom, #f6f8fa, var(--panel));
+  border-color: var(--header-border);
+  color: var(--header-bottom);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow: var(--hundido);
+}
+
+/* ---------------------------------------------------------
+   Utilidades
+   --------------------------------------------------------- */
+.upper  { text-transform: uppercase; }
+.mono   { font-family: var(--font-mono); }
+.dimmed { color: var(--muted); }

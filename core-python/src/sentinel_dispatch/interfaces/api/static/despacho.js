@@ -26,9 +26,12 @@
   const ENDPOINT_PENDIENTES = '/consola/despacho/incidentes';
   const BOUNDS_SW = [-30.10, -71.45];
   const BOUNDS_NE = [-29.85, -71.15];
-  const COLOR_PHOSPHOR = '#00ff41';
-  const COLOR_CRIT     = '#ff003c';
-  const COLOR_AMBER    = '#ffb000';
+  /* Paleta del tema retro Web 2.0 (retro.css): ruta/unidad en los
+     semánticos del tema, incidentes en rojo. */
+  const COLOR_PHOSPHOR = '#4e8f3c';   /* verde --ok: unidad despachada */
+  const COLOR_CRIT     = '#c0392b';   /* rojo --crit: incidentes */
+  const COLOR_AMBER    = '#d98f1f';   /* ámbar --warn */
+  const COLOR_RUTA     = '#35689f';   /* azul --header-bottom: ruta A* */
   const SNAP_AVISO_M   = 500;
 
   /* -----------------------------------------------------------
@@ -76,7 +79,7 @@
         if (!Array.isArray(puntos) || puntos.length < 2) return;
         L.polyline(puntos, {
           pane:        'wireframe',
-          color:       'rgba(0,255,65,0.25)',
+          color:       'rgba(107,118,134,0.45)',
           weight:      1,
           opacity:     0.5,
           interactive: false,
@@ -323,7 +326,7 @@
        en dirección al incidente (despacho.css: .ruta-astar). */
     if (geo.ruta && geo.ruta.length > 1) {
       polylineRuta = L.polyline(geo.ruta, {
-        color: COLOR_PHOSPHOR,
+        color: COLOR_RUTA,
         weight: 4,
         opacity: 0.9,
         className: 'ruta-astar',

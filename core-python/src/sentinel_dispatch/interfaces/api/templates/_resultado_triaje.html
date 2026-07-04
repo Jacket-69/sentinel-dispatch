@@ -1,5 +1,5 @@
 <div class="resultado resultado--{{ severidad }}">
-  <p class="resultado-label">// CATEGORÍA MPDS</p>
+  <p class="resultado-label">CATEGORÍA MPDS</p>
   <p class="resultado-categoria">{{ categoria | upper }}</p>
   <p class="resultado-descripcion">{{ descripcion }}</p>
   <ol class="escala-mpds" aria-label="Escala de severidad MPDS">
@@ -9,7 +9,7 @@
   </ol>
   {% if incidente_id %}
   <p class="resultado-incidente">
-    // BALIZA <strong>{{ incidente_id }}</strong> EN EL MAPA —
+    BALIZA <strong>{{ incidente_id }}</strong> EN EL MAPA —
     <a href="/consola/despacho">IR A DESPACHO ▶</a>
   </p>
   {% endif %}
