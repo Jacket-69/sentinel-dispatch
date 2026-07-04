@@ -75,12 +75,12 @@
           <td><span class="chip-valor {% if f.unidad.estado != 'ok' %}chip-valor--diff{% endif %}">{{ f.unidad.python }}</span></td>
           <td><span class="chip-valor {% if f.unidad.estado != 'ok' %}chip-valor--diff{% endif %}">{{ f.unidad.java }}</span></td>
 
-          <td class="col-num">{{ '%.2f'|format(f.eta.python) if f.eta.python is not none else '—' }}</td>
-          <td class="col-num">{{ '%.2f'|format(f.eta.java) if f.eta.java is not none else '—' }}</td>
+          <td class="col-num">{{ '%.6f'|format(f.eta.python) if f.eta.python is not none else '—' }}</td>
+          <td class="col-num">{{ '%.6f'|format(f.eta.java) if f.eta.java is not none else '—' }}</td>
           <td class="col-num"><span class="delta delta--{{ f.eta.estado }}">{{ '%.3f'|format(f.eta.delta_pct) ~ ' %' if f.eta.delta_pct is not none else '—' }}</span></td>
 
-          <td class="col-num">{{ '%.2f'|format(f.costo_total.python) if f.costo_total.python is not none else '—' }}</td>
-          <td class="col-num">{{ '%.2f'|format(f.costo_total.java) if f.costo_total.java is not none else '—' }}</td>
+          <td class="col-num">{{ '%.6f'|format(f.costo_total.python) if f.costo_total.python is not none else '—' }}</td>
+          <td class="col-num">{{ '%.6f'|format(f.costo_total.java) if f.costo_total.java is not none else '—' }}</td>
           <td class="col-num"><span class="delta delta--{{ f.costo_total.estado }}">{{ '%.3f'|format(f.costo_total.delta_pct) ~ ' %' if f.costo_total.delta_pct is not none else '—' }}</span></td>
 
           <td class="col-num">{{ f.ruta.nodos_python }}</td>
