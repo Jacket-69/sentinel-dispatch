@@ -23,6 +23,7 @@
         ('unidades',   '/consola/unidades',   'UNIDADES'),
         ('log',        '/consola/log',        'LOG'),
         ('validacion', '/consola/validacion', 'VALIDACIÓN'),
+        ('juego',      '/consola/juego',      'JUEGO'),
     ] %}
       {% if slug in vistas_habilitadas() or slug == vista_activa %}
         <a href="{{ href }}" class="{% if vista_activa == slug %}activo{% endif %}">{{ etiqueta }}</a>

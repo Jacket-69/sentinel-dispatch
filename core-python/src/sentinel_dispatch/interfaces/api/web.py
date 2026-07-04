@@ -71,7 +71,7 @@ plantillas = Jinja2Templates(directory=str(DIRECTORIO_PLANTILLAS))
 # Controla solo la navegación: las rutas siguen registradas y accesibles por
 # URL directa (deep links y tests no cambian), y la vista activa siempre
 # aparece en la nav aunque no esté habilitada.
-_VISTAS_TODAS = ("triaje", "despacho", "unidades", "log", "validacion")
+_VISTAS_TODAS = ("triaje", "despacho", "unidades", "log", "validacion", "juego")
 _VISTAS_DEFAULT = ("triaje", "unidades")
 
 
@@ -94,7 +94,7 @@ plantillas.env.globals["vistas_habilitadas"] = vistas_habilitadas
 # Cache-busting de los estáticos: las plantillas anexan ?v=<versión> a cada
 # <link>/<script> de /static. Bump manual al cambiar CSS/JS — sin esto, los
 # navegadores que visitaron la consola siguen sirviendo la hoja vieja cacheada.
-VERSION_ESTATICOS = "20260704-2"
+VERSION_ESTATICOS = "20260704-3"
 plantillas.env.globals["version_estaticos"] = VERSION_ESTATICOS
 
 router = APIRouter(tags=["consola"])
@@ -441,6 +441,19 @@ async def vista_log(
 # ---------------------------------------------------------------------------
 # Validación dual RT-02 — Python vs Java lado a lado (ADR-0008)
 # ---------------------------------------------------------------------------
+
+
+@router.get("/consola/juego", response_class=HTMLResponse)
+async def vista_juego(request: Request) -> HTMLResponse:
+    """Minijuego "ambulancia al destino" (bonus de ocio declarado, sin RF).
+
+    Runner estilo arcade en canvas: la ambulancia esquiva obstáculos camino
+    al incidente. Fuera de la nav por defecto; se habilita agregando
+    ``juego`` a ``SENTINEL_VISTAS`` o entrando por URL directa.
+    """
+    return plantillas.TemplateResponse(
+        request=request, name="juego.html", context={"vista_activa": "juego"}
+    )
 
 
 @router.get("/consola/validacion", response_class=HTMLResponse)
