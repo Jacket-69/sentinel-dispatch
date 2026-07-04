@@ -30,13 +30,18 @@ from sentinel_dispatch.adapters.grafo_osmnx import OsmnxGrafoVial, cargar_grafo_
 from sentinel_dispatch.adapters.repositorio_jsonl import JsonlRepositorioEventos
 from sentinel_dispatch.application.despachar_ambulancia import despachar
 from sentinel_dispatch.application.serializacion import serializar_resultado_despacho
+from sentinel_dispatch.application.traza_astar import trazar_a_estrella
 from sentinel_dispatch.domain.dispatch.tipos import (
     EstadoUnidad,
     Incidente,
     TipoUnidad,
     Unidad,
 )
-from sentinel_dispatch.domain.routing.tipos import NodoFueraDeRangoError
+from sentinel_dispatch.domain.routing.tipos import (
+    NodoFueraDeRangoError,
+    NodoId,
+    NoRutaDisponibleError,
+)
 from sentinel_dispatch.domain.triaje import (
     CategoriaMPDS,
     GrupoEtario,
@@ -71,7 +76,7 @@ plantillas = Jinja2Templates(directory=str(DIRECTORIO_PLANTILLAS))
 # Controla solo la navegación: las rutas siguen registradas y accesibles por
 # URL directa (deep links y tests no cambian), y la vista activa siempre
 # aparece en la nav aunque no esté habilitada.
-_VISTAS_TODAS = ("triaje", "despacho", "unidades", "log", "validacion", "juego")
+_VISTAS_TODAS = ("triaje", "despacho", "astar", "unidades", "log", "validacion", "juego")
 _VISTAS_DEFAULT = ("triaje", "unidades")
 
 
@@ -94,7 +99,7 @@ plantillas.env.globals["vistas_habilitadas"] = vistas_habilitadas
 # Cache-busting de los estáticos: las plantillas anexan ?v=<versión> a cada
 # <link>/<script> de /static. Bump manual al cambiar CSS/JS — sin esto, los
 # navegadores que visitaron la consola siguen sirviendo la hoja vieja cacheada.
-VERSION_ESTATICOS = "20260704-3"
+VERSION_ESTATICOS = "20260704-4"
 plantillas.env.globals["version_estaticos"] = VERSION_ESTATICOS
 
 router = APIRouter(tags=["consola"])
@@ -686,6 +691,66 @@ async def incidentes_pendientes(
 ) -> dict[str, list[dict[str, Any]]]:
     """Balizas pendientes generadas desde el triaje (puente triaje → despacho)."""
     return {"incidentes": list(pendientes.values())}
+
+
+# ---------------------------------------------------------------------------
+# Vista A* didáctica — expansión de la frontera sobre el wireframe (demo)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/consola/astar", response_class=HTMLResponse)
+async def vista_astar(request: Request) -> HTMLResponse:
+    """Vista demostrativa del A*: frontera, heurística y ruta final.
+
+    Herramienta de defensa (SRS sec. 2.6-B, ADR-0010): anima el orden real
+    de expansión del algoritmo sobre el wireframe del mapa. Usa la traza
+    instrumentada de :mod:`application.traza_astar`; el A* operativo del
+    dominio no participa ni se modifica (RT-02 intacto).
+    """
+    return plantillas.TemplateResponse(
+        request=request, name="astar.html", context={"vista_activa": "astar"}
+    )
+
+
+@router.post("/consola/astar/trazar")
+async def trazar_astar(
+    lat_origen: float = Form(...),
+    lon_origen: float = Form(...),
+    lat_destino: float = Form(...),
+    lon_destino: float = Form(...),
+    grafo: GrafoVial = Depends(obtener_grafo),
+) -> dict[str, Any]:
+    """Corre el A* instrumentado entre dos puntos clickeados y devuelve la traza.
+
+    Snapea ambos puntos a la red vial y responde el orden de expansión de la
+    frontera como coordenadas Leaflet, la ruta final, el ETA y la cota
+    inferior de la heurística en el origen (argumento de admisibilidad).
+    """
+    try:
+        nodo_origen = grafo.nodo_mas_cercano(lat_origen, lon_origen)
+        nodo_destino = grafo.nodo_mas_cercano(lat_destino, lon_destino)
+    except NodoFueraDeRangoError as exc:
+        raise HTTPException(status_code=422, detail={"mensaje": str(exc)}) from exc
+
+    try:
+        traza = trazar_a_estrella(grafo, nodo_origen, nodo_destino)
+    except NoRutaDisponibleError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"mensaje": "No existe ruta entre los puntos seleccionados."},
+        ) from exc
+
+    def _coords(nodos: list[NodoId]) -> list[list[float]]:
+        return [[round(c, 6) for c in grafo.coordenadas(n)] for n in nodos]
+
+    return {
+        "eta_segundos": traza.eta_segundos,
+        "h_origen_segundos": traza.h_origen_segundos,
+        "nodos_expandidos": len(traza.expansiones),
+        "nodos_ruta": len(traza.ruta_nodos),
+        "expansiones": _coords(traza.expansiones),
+        "ruta": _coords(traza.ruta_nodos),
+    }
 
 
 @router.post("/consola/despacho/reset")
