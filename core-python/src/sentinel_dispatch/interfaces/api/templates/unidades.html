@@ -10,7 +10,7 @@
 
 <header class="unidades-header">
   <h1 class="consola-titulo">PANEL DE UNIDADES</h1>
-  <p class="consola-subtitulo">// FLOTA SAMU — IV REGIÓN — ESTADO OPERATIVO</p>
+  <p class="consola-subtitulo">FLOTA SAMU — IV REGIÓN — ESTADO OPERATIVO</p>
 </header>
 
 {% set n_disponible = unidades | selectattr('estado_token', 'equalto', 'disponible') | list | length %}
@@ -90,7 +90,7 @@
         {% endfor %}
       {% else %}
         <tr class="fila-vacia">
-          <td colspan="7">// SIN UNIDADES REGISTRADAS</td>
+          <td colspan="7">SIN UNIDADES REGISTRADAS</td>
         </tr>
       {% endif %}
     </tbody>

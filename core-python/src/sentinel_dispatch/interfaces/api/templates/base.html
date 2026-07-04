@@ -5,22 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}SENTINEL-DISPATCH{% endblock %}</title>
 
-  <!-- Fuentes CRT/phosphor -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=VT323&family=JetBrains+Mono:wght@400;500&display=swap">
-
-  <!-- Hoja de estilos CRT (con cache-busting: ver VERSION_ESTATICOS en web.py) -->
-  <link rel="stylesheet" href="/static/crt.css?v={{ version_estaticos }}">
+  <!-- Tema retro Web 2.0: fuentes de sistema de la época, sin webfonts.
+       (con cache-busting: ver VERSION_ESTATICOS en web.py) -->
+  <link rel="stylesheet" href="/static/retro.css?v={{ version_estaticos }}">
 
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-
-  <!-- Overlays CRT: scanlines + viñeta del tubo. Fijos, no interceptan eventos -->
-  <div class="scanlines" aria-hidden="true"></div>
-  <div class="vineta" aria-hidden="true"></div>
 
   <nav class="consola-nav">
     <span class="consola-nav__marca">SENTINEL-DISPATCH</span>

@@ -1,6 +1,6 @@
 """Router web de la consola de operador (ADR-0022, rescate de ADR-0004).
 
-Sirve la consola HTMX con estética CRT servida por la misma FastAPI app
+Sirve la consola HTMX servida por la misma FastAPI app
 (ADR-0002). Primera vista: Triaje (formulario MPDS-subset). Las plantillas
 Jinja2 y los estáticos viven junto a este módulo (``templates/`` y
 ``static/``); el path se resuelve relativo a ``__file__`` para que funcione
@@ -94,7 +94,7 @@ plantillas.env.globals["vistas_habilitadas"] = vistas_habilitadas
 # Cache-busting de los estáticos: las plantillas anexan ?v=<versión> a cada
 # <link>/<script> de /static. Bump manual al cambiar CSS/JS — sin esto, los
 # navegadores que visitaron la consola siguen sirviendo la hoja vieja cacheada.
-VERSION_ESTATICOS = "20260704-1"
+VERSION_ESTATICOS = "20260704-2"
 plantillas.env.globals["version_estaticos"] = VERSION_ESTATICOS
 
 router = APIRouter(tags=["consola"])
@@ -110,7 +110,7 @@ def _ahora_iso_z() -> str:
 # Presentación por categoría: token de severidad CSS + descripción breve para
 # el operador. Las descripciones replican la semántica MPDS documentada en
 # domain/triaje/tipos.py; el token alimenta la clase .resultado--<severidad>
-# del fragmento (crt.css define crit / amber / phosphor / dim).
+# del fragmento (retro.css define crit / amber / phosphor / dim).
 _PRESENTACION: dict[CategoriaMPDS, tuple[str, str]] = {
     CategoriaMPDS.ECHO: ("crit", "ALS + recursos múltiples — paro inminente."),
     CategoriaMPDS.DELTA: ("crit", "ALS urgente (Avanzada, con sirena)."),
@@ -128,7 +128,7 @@ async def raiz() -> RedirectResponse:
 
 @router.get("/consola/triaje", response_class=HTMLResponse)
 async def vista_triaje(request: Request) -> HTMLResponse:
-    """Renderiza el formulario de triaje de la consola CRT."""
+    """Renderiza el formulario de triaje de la consola."""
     return plantillas.TemplateResponse(
         request=request, name="triaje.html", context={"vista_activa": "triaje"}
     )

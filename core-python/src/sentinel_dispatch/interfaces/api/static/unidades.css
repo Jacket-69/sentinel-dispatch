@@ -1,15 +1,13 @@
 /* =========================================================
    Sentinel-Dispatch — Panel de Unidades
-   Complementa crt.css. No redefine :root, body ni .scanlines.
-   Tokens globales: var(--phosphor), var(--amber), var(--crit),
-   var(--dim), var(--bg), var(--panel), var(--font-display),
-   var(--font-mono), var(--glow-phosphor), var(--glow-amber).
+   Complementa retro.css. No redefine :root ni body.
+   Tokens globales: superficies, semánticos (--ok/--warn/--crit
+   /--info y sus *-top), --text, --muted, bevels y letterpress.
    ========================================================= */
 
 /* ---------------------------------------------------------
-   Tablero de la flota: un contador grande por estado.
-   El color de cada celda es el mismo token que pinta la
-   tabla (disponible/enruta/enescena/taller).
+   Tablero de la flota: una tarjeta glossy por estado, con el
+   contador grande coloreado por su token semántico.
    --------------------------------------------------------- */
 .tablero-flota {
   display: grid;
@@ -19,8 +17,10 @@
 }
 
 .stat {
-  background: var(--panel);
-  border: 1px solid var(--dim);
+  background: linear-gradient(to bottom, var(--card-top), var(--card-bottom));
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  box-shadow: var(--bevel-card);
   padding: 0.7rem 1rem 0.55rem;
   position: relative;
   animation: stat-in 0.3s ease-out both;
@@ -36,184 +36,166 @@
   to   { opacity: 1; transform: none; }
 }
 
-/* Esquinas marcadas, como marco de instrumento */
-.stat::before,
-.stat::after {
-  content: '';
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border: 1px solid currentColor;
-}
-
-.stat::before {
-  top: -1px;
-  left: -1px;
-  border-right: none;
-  border-bottom: none;
-}
-
-.stat::after {
-  bottom: -1px;
-  right: -1px;
-  border-left: none;
-  border-top: none;
-}
-
 .stat-num {
   display: block;
-  font-family: var(--font-display);
-  font-size: 2.6rem;
+  font-size: 2.3rem;
+  font-weight: bold;
   line-height: 1;
-  text-shadow: 0 0 10px currentColor;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .stat-label {
   display: block;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  font-weight: bold;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  opacity: 0.75;
-  margin-top: 0.2rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
 }
 
-.stat--disponible { color: var(--phosphor); border-color: var(--phosphor); }
-.stat--enruta     { color: var(--amber); }
-.stat--enescena   { color: var(--amber); }
-.stat--taller     { color: var(--dim); }
-.stat--total      { color: var(--phosphor); opacity: 0.85; }
+.stat--disponible { color: var(--ok); }
+.stat--enruta     { color: var(--warn); }
+.stat--enescena   { color: var(--warn); }
+.stat--taller     { color: var(--muted); }
+.stat--total      { color: var(--header-bottom); }
 
-/* Si hay unidades en ruta, su contador pulsa */
+/* Si hay unidades en ruta, su contador pulsa suave */
 .stat--enruta .stat-num {
   animation: enruta-pulse 1.4s ease-in-out infinite;
 }
 
+@keyframes enruta-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
 /* ---------------------------------------------------------
-   Tabla principal de unidades
+   Tabla principal de unidades — panel glossy con encabezado
+   de gradiente azul y filas cebra.
    --------------------------------------------------------- */
 .tabla-unidades-wrap {
   overflow-x: auto;
-  border: 1px solid var(--phosphor);
-  box-shadow:
-    0 0 14px rgba(0, 255, 65, 0.10),
-    inset 0 0 28px rgba(0, 0, 0, 0.45);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  box-shadow: var(--bevel);
 }
 
 .tabla-unidades {
   width: 100%;
   border-collapse: collapse;
-  font-family: var(--font-mono);
   font-size: 0.875rem;
   line-height: 1.5;
-  letter-spacing: 0.02em;
 }
 
-/* Encabezado */
+/* Encabezado glossy azul, texto blanco letterpress */
 .tabla-unidades thead tr {
-  background: rgba(0, 255, 65, 0.07);
-  border-bottom: 1px solid var(--phosphor);
+  background: linear-gradient(to bottom, var(--header-top), var(--header-bottom));
 }
 
 .tabla-unidades thead th {
-  padding: 0.55rem 1rem;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  letter-spacing: 0.12em;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--phosphor);
-  text-shadow: var(--glow-phosphor);
+  color: #fff;
+  text-shadow: var(--letterpress);
   text-align: left;
   white-space: nowrap;
+  border-bottom: 1px solid var(--header-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
-/* Separador vertical entre columnas de encabezado */
 .tabla-unidades thead th + th {
-  border-left: 1px solid var(--dim);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* Filas del cuerpo: entran escalonadas (--i inline por fila) */
+/* Filas del cuerpo: cebra + entrada escalonada (--i inline por fila) */
 @keyframes fila-in {
   from { opacity: 0; transform: translateX(-8px); }
   to   { opacity: 1; transform: none; }
 }
 
 .tabla-unidades tbody tr {
-  border-bottom: 1px solid rgba(0, 92, 32, 0.35);
-  transition: background 0.1s ease, box-shadow 0.1s ease;
+  border-bottom: 1px solid var(--card-border);
+  transition: background 0.1s ease;
   animation: fila-in 0.25s ease-out both;
   animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.tabla-unidades tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .tabla-unidades tbody tr:last-child {
   border-bottom: none;
 }
 
-/* Barrido de hover: tinte + barra de selección al borde izquierdo */
 .tabla-unidades tbody tr:hover {
-  background: rgba(0, 255, 65, 0.06);
-  box-shadow: inset 3px 0 0 var(--phosphor);
+  background: #dde8f4;
 }
 
 .tabla-unidades tbody td {
   padding: 0.5rem 1rem;
-  color: var(--phosphor);
+  color: var(--text);
   vertical-align: middle;
 }
 
-/* Columna ID — más compacta y prominente */
+/* Columna ID — prominente */
 .tabla-unidades td.col-id {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  letter-spacing: 0.1em;
-  color: var(--phosphor);
-  text-shadow: var(--glow-phosphor);
+  font-family: var(--font-mono);
+  font-weight: bold;
+  color: var(--header-bottom);
   white-space: nowrap;
 }
 
 /* Columna POSICIÓN — más tenue, lat/lon en una sola línea */
 .tabla-unidades td.col-pos {
-  color: var(--dim);
-  font-size: 0.82rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
   white-space: nowrap;
 }
 
 /* ---------------------------------------------------------
-   Chip de tipo de unidad (ALS / BLS)
+   Chip de tipo de unidad (ALS / BLS) — pill glossy
    --------------------------------------------------------- */
 .chip {
   display: inline-block;
-  padding: 0.06rem 0.55rem;
-  border: 1px solid currentColor;
-  font-size: 0.78rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  padding: 0.05rem 0.55rem;
+  background: linear-gradient(to bottom, #fbfcfd, #e4e7ec);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 #fff;
+  font-size: 0.75rem;
   white-space: nowrap;
+  color: var(--muted);
 }
 
 .chip--als {
-  color: var(--phosphor);
-  background: rgba(0, 255, 65, 0.08);
-}
-
-.chip--bls {
-  color: rgba(0, 255, 65, 0.55);
+  color: var(--header-bottom);
+  font-weight: bold;
 }
 
 /* ---------------------------------------------------------
-   Indicador de estado (pill con ●)
+   Indicador de estado (pill glossy con ●)
    --------------------------------------------------------- */
 .estado-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
-  padding: 0.1rem 0.6rem;
-  border: 1px solid currentColor;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
+  padding: 0.1rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  font-size: 0.78rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
+  color: #fff;
+  text-shadow: var(--letterpress);
+  box-shadow: var(--bevel-boton);
 }
 
 .estado-badge::before {
@@ -223,38 +205,28 @@
 }
 
 /* ---------------------------------------------------------
-   Variantes de estado
-   El color aplica al pill (borde + texto + fondo tenue),
-   no al fondo entero de la fila (mantiene legibilidad).
+   Variantes de estado — gradiente semántico del pill
    --------------------------------------------------------- */
 
-/* Disponible — phosphor (verde lleno) */
+/* Disponible — verde */
 .fila--disponible .estado-badge {
-  color: var(--phosphor);
-  background: rgba(0, 255, 65, 0.10);
-  text-shadow: var(--glow-phosphor);
+  background: linear-gradient(to bottom, var(--ok-top), var(--ok));
 }
 
-/* EnRuta — amber (ámbar, en movimiento) */
+/* EnRuta — ámbar (en movimiento) */
 .fila--enruta .estado-badge {
-  color: var(--amber);
-  background: rgba(255, 176, 0, 0.10);
-  text-shadow: var(--glow-amber);
+  background: linear-gradient(to bottom, var(--warn-top), var(--warn));
 }
 
-/* EnEscena — amber levemente más brillante, sin pulso extra */
+/* EnEscena — ámbar más profundo */
 .fila--enescena .estado-badge {
-  color: var(--amber);
-  background: rgba(255, 176, 0, 0.14);
-  text-shadow: var(--glow-amber), 0 0 24px rgba(255, 176, 0, 0.25);
-  letter-spacing: 0.1em;
+  background: linear-gradient(to bottom, var(--warn), #b57718);
 }
 
-/* Taller — dim (opaco, fuera de servicio) */
+/* Taller — gris, fuera de servicio */
 .fila--taller .estado-badge {
-  color: var(--dim);
-  text-shadow: var(--glow-dim);
-  opacity: 0.72;
+  background: linear-gradient(to bottom, #8b95a3, var(--muted));
+  opacity: 0.85;
 }
 
 /* ---------------------------------------------------------
@@ -263,54 +235,16 @@
    ámbar como su badge de estado, para leer el vínculo de un vistazo.
    --------------------------------------------------------- */
 .tabla-unidades td.col-destino {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   white-space: nowrap;
 }
 
 .fila--enruta .destino {
-  color: var(--amber);
-  text-shadow: var(--glow-amber);
+  color: var(--warn);
+  font-weight: bold;
 }
 
 .destino--vacio {
-  color: var(--dim);
+  color: var(--muted);
   opacity: 0.5;
-}
-
-/* Fila completa atenuada cuando la unidad está en taller */
-.fila--taller td {
-  opacity: 0.6;
-}
-
-/* ---------------------------------------------------------
-   Animación de pulso para estados EnRuta (sutil)
-   --------------------------------------------------------- */
-@keyframes enruta-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.82; }
-}
-
-.fila--enruta .estado-badge::before {
-  animation: enruta-pulse 1.4s ease-in-out infinite;
-}
-
-/* ---------------------------------------------------------
-   Fila "sin datos" cuando la lista está vacía
-   --------------------------------------------------------- */
-.tabla-unidades .fila-vacia td {
-  text-align: center;
-  color: var(--dim);
-  font-family: var(--font-display);
-  letter-spacing: 0.1em;
-  padding: 2rem 1rem;
-  font-size: 1.05rem;
-}
-
-/* ---------------------------------------------------------
-   Encabezado de la vista
-   Hereda .consola-titulo y .consola-subtitulo de crt.css;
-   solo ajustamos el margen inferior antes del tablero.
-   --------------------------------------------------------- */
-.unidades-header {
-  margin-bottom: 1.75rem;
 }

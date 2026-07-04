@@ -10,7 +10,7 @@
 
 <header>
   <h1 class="log-titulo">REGISTRO DE EVENTOS</h1>
-  <p class="log-subtitulo">// LOG JSONL APPEND-ONLY — AUDITORÍA (RF-06)</p>
+  <p class="log-subtitulo">LOG JSONL APPEND-ONLY — AUDITORÍA (RF-06)</p>
 </header>
 
 <section>
@@ -31,7 +31,7 @@
       <span class="conteo conteo--crit">● {{ n_crit }} CRIT</span>
       <span class="conteo conteo--info">● {{ n_info }} INFO</span>
     </span>
-    <span class="dimmed">// JSONL · APPEND-ONLY · RF-06</span>
+    <span class="dimmed">JSONL · APPEND-ONLY · RF-06</span>
   </div>
 
   <div class="log-consola" role="log" aria-live="polite" aria-label="Registro de eventos del sistema">
@@ -56,7 +56,7 @@
     {% else %}
 
       <div class="log-vacio">
-        // SIN EVENTOS REGISTRADOS — ejecuta:<br>
+        SIN EVENTOS REGISTRADOS — ejecuta:<br>
         sentinel run-dataset --log-eventos &lt;ruta&gt;
       </div>
 

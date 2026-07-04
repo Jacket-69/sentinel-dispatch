@@ -10,7 +10,7 @@
 
 <header class="validacion-header">
   <h1 class="consola-titulo">VALIDACIÓN DUAL</h1>
-  <p class="consola-subtitulo">// RT-02 — DOS IMPLEMENTACIONES INDEPENDIENTES · MISMO DATASET · MISMO RESULTADO</p>
+  <p class="consola-subtitulo">RT-02 — DOS IMPLEMENTACIONES INDEPENDIENTES · MISMO DATASET · MISMO RESULTADO</p>
 </header>
 
 <div class="tablero-validacion">
@@ -62,7 +62,7 @@
         {% if f.veredicto == 'MISSING' %}
         <tr class="fila--missing" style="--i: {{ loop.index0 }}">
           <td class="col-id">{{ f.incidente_id }}</td>
-          <td colspan="13" class="col-missing">// {{ f.notas | join(' · ') | upper }}</td>
+          <td colspan="13" class="col-missing">{{ f.notas | join(' · ') | upper }}</td>
           <td><span class="veredicto-badge veredicto--missing">MISSING</span></td>
         </tr>
         {% else %}
@@ -95,7 +95,7 @@
         {% endfor %}
       {% else %}
         <tr class="fila-vacia">
-          <td colspan="15">// SIN FIXTURES DE VALIDACIÓN — ver data/validacion/README.md</td>
+          <td colspan="15">SIN FIXTURES DE VALIDACIÓN — ver data/validacion/README.md</td>
         </tr>
       {% endif %}
     </tbody>
@@ -103,9 +103,9 @@
 </div>
 
 <footer class="validacion-procedencia">
-  <span>// DATASET DE ACEPTACIÓN DEL SRS §2.12 — {{ resumen.total }} INCIDENTES</span>
-  <span>// FIXTURES GENERADAS {{ fecha_fixtures }} (data/validacion/)</span>
-  <span>// EL JOB CI «COMPARE» REVALIDA LA PARIDAD EN CADA PR</span>
+  <span>DATASET DE ACEPTACIÓN DEL SRS §2.12 — {{ resumen.total }} INCIDENTES</span>
+  <span>FIXTURES GENERADAS {{ fecha_fixtures }} (data/validacion/)</span>
+  <span>EL JOB CI «COMPARE» REVALIDA LA PARIDAD EN CADA PR</span>
 </footer>
 
 {% endblock %}
