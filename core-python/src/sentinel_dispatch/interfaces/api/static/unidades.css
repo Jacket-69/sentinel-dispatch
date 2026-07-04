@@ -257,6 +257,26 @@
   opacity: 0.72;
 }
 
+/* ---------------------------------------------------------
+   Columna DESTINO — trazabilidad despacho ↔ flota
+   La unidad EnRuta declara a qué incidente va (id · categoría · ETA);
+   ámbar como su badge de estado, para leer el vínculo de un vistazo.
+   --------------------------------------------------------- */
+.tabla-unidades td.col-destino {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.fila--enruta .destino {
+  color: var(--amber);
+  text-shadow: var(--glow-amber);
+}
+
+.destino--vacio {
+  color: var(--dim);
+  opacity: 0.5;
+}
+
 /* Fila completa atenuada cuando la unidad está en taller */
 .fila--taller td {
   opacity: 0.6;

@@ -94,7 +94,7 @@ plantillas.env.globals["vistas_habilitadas"] = vistas_habilitadas
 # Cache-busting de los estáticos: las plantillas anexan ?v=<versión> a cada
 # <link>/<script> de /static. Bump manual al cambiar CSS/JS — sin esto, los
 # navegadores que visitaron la consola siguen sirviendo la hoja vieja cacheada.
-VERSION_ESTATICOS = "20260612-1"
+VERSION_ESTATICOS = "20260704-1"
 plantillas.env.globals["version_estaticos"] = VERSION_ESTATICOS
 
 router = APIRouter(tags=["consola"])
@@ -268,6 +268,9 @@ class _UnidadVM:
     base_lon: float
     estado: str
     estado_token: str
+    destino_incidente: str | None = None
+    destino_categoria: str | None = None
+    destino_eta_segundos: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,17 +286,24 @@ class _EventoVM:
     token: str
 
 
-def _cargar_unidades(estados: dict[str, EstadoUnidad]) -> list[_UnidadVM]:
+def _cargar_unidades(
+    estados: dict[str, EstadoUnidad],
+    asignaciones: dict[str, dict[str, Any]] | None = None,
+) -> list[_UnidadVM]:
     """Lee la flota desde el dataset y la proyecta a vista-modelos.
 
     El estado base viene de ``unidades.json``; ``estados`` (overlay en
     memoria) lo sobreescribe para reflejar los despachos hechos desde la
-    consola (unidad → ``EnRuta``) hasta el reset.
+    consola (unidad → ``EnRuta``) hasta el reset. ``asignaciones`` (overlay
+    hermano) aporta el destino de cada unidad despachada: incidente,
+    categoría y ETA, visibles solo mientras la unidad siga ``EnRuta``.
     """
     datos = json.loads(_UNIDADES_PATH.read_text(encoding="utf-8"))
+    asignaciones = asignaciones or {}
     unidades: list[_UnidadVM] = []
     for d in datos:
         estado = estados.get(d["id"], EstadoUnidad(d["estado"]))
+        asignacion = asignaciones.get(d["id"]) if estado is EstadoUnidad.EN_RUTA else None
         unidades.append(
             _UnidadVM(
                 id=d["id"],
@@ -304,6 +314,9 @@ def _cargar_unidades(estados: dict[str, EstadoUnidad]) -> list[_UnidadVM]:
                 base_lon=float(d["base_lon"]),
                 estado=estado.value,
                 estado_token=_TOKEN_ESTADO[estado],
+                destino_incidente=asignacion.get("incidente_id") if asignacion else None,
+                destino_categoria=asignacion.get("categoria_mpds") if asignacion else None,
+                destino_eta_segundos=asignacion.get("eta_segundos") if asignacion else None,
             )
         )
     return unidades
@@ -372,19 +385,40 @@ def obtener_estados_unidades(request: Request) -> dict[str, EstadoUnidad]:
     return cast("dict[str, EstadoUnidad]", estados)
 
 
+def obtener_asignaciones(request: Request) -> dict[str, dict[str, Any]]:
+    """Dependencia: overlay en memoria de asignaciones unidad → incidente.
+
+    Complementa :func:`obtener_estados_unidades`: además del estado
+    ``EnRuta``, la consola recuerda a qué incidente va cada unidad despachada
+    (id, categoría MPDS y ETA) para que el panel de flota lo muestre de un
+    vistazo. Mismo ciclo de vida que el overlay de estados (v1, no persiste).
+    """
+    asignaciones = getattr(request.app.state, "asignaciones_unidades", None)
+    if asignaciones is None:
+        asignaciones = {}
+        request.app.state.asignaciones_unidades = asignaciones
+    return cast("dict[str, dict[str, Any]]", asignaciones)
+
+
 @router.get("/consola/unidades", response_class=HTMLResponse)
 async def vista_unidades(
     request: Request,
     estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
+    asignaciones: dict[str, dict[str, Any]] = Depends(obtener_asignaciones),
 ) -> HTMLResponse:
     """Panel de la flota: tabla de unidades con su estado (RF-09).
 
-    Refleja el overlay en memoria (los despachos hechos desde la consola).
+    Refleja el overlay en memoria (los despachos hechos desde la consola),
+    incluyendo el destino de cada unidad ``EnRuta`` (incidente, categoría,
+    ETA) para trazar el vínculo despacho ↔ flota de un vistazo.
     """
     return plantillas.TemplateResponse(
         request=request,
         name="unidades.html",
-        context={"unidades": _cargar_unidades(estados), "vista_activa": "unidades"},
+        context={
+            "unidades": _cargar_unidades(estados, asignaciones),
+            "vista_activa": "unidades",
+        },
     )
 
 
@@ -561,6 +595,7 @@ async def ejecutar_despacho(
     repo: JsonlRepositorioEventos | None = Depends(obtener_repositorio_eventos),
     estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
     pendientes: dict[str, dict[str, Any]] = Depends(obtener_incidentes_pendientes),
+    asignaciones: dict[str, dict[str, Any]] = Depends(obtener_asignaciones),
 ) -> dict[str, Any]:
     """Despacha la mejor unidad para el incidente clickeado y devuelve JSON.
 
@@ -596,6 +631,13 @@ async def ejecutar_despacho(
     # Si se introduce concurrencia/await aquí, envolver con un lock por-app.
     if resultado.elegida is not None:
         estados[resultado.elegida.id] = EstadoUnidad.EN_RUTA
+        # Trazabilidad despacho ↔ flota: el panel de unidades muestra a qué
+        # incidente va la unidad (id + categoría + ETA) mientras siga EnRuta.
+        asignaciones[resultado.elegida.id] = {
+            "incidente_id": id_incidente,
+            "categoria_mpds": categoria_mpds.value,
+            "eta_segundos": core.get("eta_segundos"),
+        }
         # Despacho concretado: la baliza del triaje (si la hubo) queda atendida.
         pendientes.pop(id_incidente, None)
     if repo is not None:
@@ -637,10 +679,12 @@ async def incidentes_pendientes(
 async def reset_flota(
     estados: dict[str, EstadoUnidad] = Depends(obtener_estados_unidades),
     pendientes: dict[str, dict[str, Any]] = Depends(obtener_incidentes_pendientes),
+    asignaciones: dict[str, dict[str, Any]] = Depends(obtener_asignaciones),
 ) -> dict[str, int]:
     """Reinicia la consola: libera la flota y descarta las balizas pendientes."""
     liberadas = len(estados)
     descartados = len(pendientes)
     estados.clear()
     pendientes.clear()
+    asignaciones.clear()
     return {"unidades_liberadas": liberadas, "incidentes_descartados": descartados}
